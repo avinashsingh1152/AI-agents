@@ -1,4 +1,4 @@
-# Product-Comparision
+# Flipkart Seller Dashboard
 
 Install node
 
