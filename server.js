@@ -1,306 +1,413 @@
 const express = require('express');
-const app = express();
+const session = require('express-session');
 const path = require('path');
-const PORT = 3000;
-const axios = require('axios');
-const OPENAI_API_KEY = "eadd36ff773c4c659b2372403eba44f8"
+const db = require('./db');
+const FlipkartSellerAgent = require('./flipkart-ai-agent');
 
-// Sample seller data
-let sellerData = {
-  profile: {
-    businessName: "TechGadgets Store",
-    ownerName: "Pankaj Tripathi",
-    email: "pakaj.tripathi@techgadgets.com",
-    phone: "+91-9155530123",
-    address: "123 Commerce St, Delhi, India - 123456",
-    gstNumber: "GST123456789",
-    rating: 4.5,
-          totalSales: 2500000
-  },
-  products: [
-    {
-      id: 1,
-      name: "Wireless Bluetooth Headphones",
-      price: 7999,
-      stock: 50,  
-      category: "Electronics",
-      description: "High-quality wireless headphones with noise cancellation",
-      status: "active"
-    },
-    {
-      id: 2,
-      name: "Smart Phone Case",
-      price: 1999,
-      stock: 100,
-      category: "Accessories", 
-      description: "Protective case for smartphones with wireless charging support",
-      status: "active"
-    },
-    {
-      id: 3,
-      name: "USB-C Cable",
-      price: 999,
-      stock: 200,
-      category: "Accessories",
-      description: "Fast charging USB-C cable 6ft length", 
-      status: "active"
-    },
-    {
-      id: 4,
-      name: "Laptop Stand",
-      price: 3699,
-      stock: 25,
-      category: "Office Supplies",
-      description: "Adjustable aluminum laptop stand for better ergonomics",
-      status: "active"
-    }
-  ],
-  orders: [
-          {
-        id: "ORD001",
-        customerName: "Anuradha",
-        products: ["Wireless Bluetooth Headphones"],
-        total: 7999,
-        status: "delivered",
-        date: "2024-01-15"
-      },
-      {
-        id: "ORD002",
-        customerName: "Bhavesh",
-        products: ["Smart Phone Case", "USB-C Cable"],
-        total: 2998,
-        status: "shipped",
-        date: "2024-01-18"
-      },
-      {
-        id: "ORD003",
-        customerName: "Chirag",
-        products: ["Laptop Stand"],
-        total: 3699,
-        status: "processing",
-        date: "2024-01-20"
-      }
-  ],
-  analytics: {
-    totalRevenue: 125000,
-    totalOrders: 85,
-    pendingOrders: 12,
-    lowStockItems: 3,
-    monthlyGrowth: 15.5
-  }
-};
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-// Middleware to parse JSON bodies
+// Middleware
 app.use(express.json());
-
-// Serve static files from the 'public' folder
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
-
-const bodyParser = require("body-parser");
-const cors = require("cors");
-
-app.use(bodyParser.json());
-app.use(cors());
-
-// Serve views (EJS files)
 app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
 
-// Seller Dashboard Route
-app.get('/seller-dashboard', (req, res) => {
-  res.render('seller-dashboard', { sellerData }); // Renders seller-dashboard.ejs
-});
+// Session configuration
+app.use(session({
+    secret: 'flipkart-seller-secret-key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 } // 24 hours
+}));
 
-// API endpoint to get seller data
-app.get('/api/seller-data', (req, res) => {
-  res.json(sellerData);
-});
-
-// API endpoint to update seller profile
-app.post('/api/update-seller-profile', (req, res) => {
-  const updates = req.body;
-  sellerData.profile = { ...sellerData.profile, ...updates };
-  res.json({ success: true, message: 'Profile updated successfully', profile: sellerData.profile });
-});
-
-// API endpoint to add/update product
-app.post('/api/update-product', (req, res) => {
-  const { id, ...productData } = req.body;
-  
-  if (id) {
-    // Update existing product
-    const productIndex = sellerData.products.findIndex(p => p.id === parseInt(id));
-    if (productIndex !== -1) {
-      sellerData.products[productIndex] = { ...sellerData.products[productIndex], ...productData };
-      res.json({ success: true, message: 'Product updated successfully', product: sellerData.products[productIndex] });
+// Authentication middleware
+function requireLogin(req, res, next) {
+    if (req.session.userId) {
+        next();
     } else {
-      res.status(404).json({ success: false, message: 'Product not found' });
+        res.redirect('/login');
     }
-  } else {
-    // Add new product
-    const newProduct = {
-      id: Math.max(...sellerData.products.map(p => p.id)) + 1,
-      ...productData,
-      status: 'active'
-    };
-    sellerData.products.push(newProduct);
-    res.json({ success: true, message: 'Product added successfully', product: newProduct });
-  }
-});
+}
 
-// API endpoint to update order status
-app.post('/api/update-order-status', (req, res) => {
-  const { orderId, status } = req.body;
-  const order = sellerData.orders.find(o => o.id === orderId);
-  
-  if (order) {
-    order.status = status;
-    res.json({ success: true, message: 'Order status updated successfully', order });
-  } else {
-    res.status(404).json({ success: false, message: 'Order not found' });
-  }
-});
-
-// Enhanced chatbot endpoint for seller data modifications
-app.post('/api/seller-chatbot', async (req, res) => {
-  const { message } = req.body;
-  
-  const systemPrompt = `You are a helpful Flipkart seller assistant. You help sellers manage their products, orders, and business profile on the Flipkart e-commerce platform. 
-  
-  Current seller data:
-  - Business: ${sellerData.profile.businessName}
-  - Products: ${sellerData.products.map(p => `${p.name} (ID: ${p.id}, Stock: ${p.stock}, Price: ₹${p.price})`).join(', ')}
-  - Orders: ${sellerData.orders.map(o => `${o.id} - ${o.customerName} (Status: ${o.status})`).join(', ')}
-  
-  You can help with:
-  1. Updating product prices, stock, or descriptions
-  2. Changing order statuses  
-  3. Updating business profile information
-  4. Adding new products
-  5. Providing analytics insights
-  
-  When the user asks to make changes, provide a helpful explanation followed by the specific JSON action format.
-  
-  JSON Action Examples:
-     - For updating product: {"action": "updateProduct", "productId": 1, "updates": {"price": 6999}}
-  - For updating order status: {"action": "updateOrderStatus", "orderId": "ORD003", "status": "shipped"}
-  - For updating profile: {"action": "updateProfile", "updates": {"phone": "+1-555-9999"}}
-  - For adding product: {"action": "addProduct", "productData": {"name": "New Product", "price": 50, "stock": 100, "category": "Electronics", "description": "Description"}}
-  
-  Always end your response with the appropriate JSON action if changes are requested.`;
-
-  const chatPrompt = `User request: ${message}
-  
-  Please provide a helpful response and if the user is requesting changes to seller data, include specific instructions in JSON format at the end of your response.`;
-
-  const data = {
-    "messages": [
-      {
-        "role": "system",
-        "content": systemPrompt
-      },
-      {
-        "role": "user",  
-        "content": [
-          {
-            "type": "text",
-            "text": chatPrompt
-          }
-        ]
-      }
-    ],
-    "max_tokens": 1000,
-    "temperature": 0.7,
-    "frequency_penalty": 0,
-    "presence_penalty": 0,
-    "top_p": 0.95
-  };
-
-  try {
-    const response = await axios.post('http://10.83.64.112/gpt-4o/chat/completions?api-version=2023-07-01-preview', data, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Ocp-Apim-Subscription-Key': OPENAI_API_KEY
-      }
-    });
-
-    const chatResponse = response.data.choices[0].message.content.trim();
-    console.log('Chatbot response:', chatResponse);
-    
-    // Try to parse any JSON instructions from the response
-    let actionData = null;
+// Helper function to get seller data
+async function getSellerData(userId) {
     try {
-      // Look for JSON at the end of the response
-      const jsonMatch = chatResponse.match(/\{[\s\S]*\}$/);
-      if (jsonMatch) {
-        actionData = JSON.parse(jsonMatch[0]);
-        console.log('Parsed action data:', actionData);
-      } else {
-        // Also try to find JSON anywhere in the response
-        const anyJsonMatch = chatResponse.match(/\{[\s\S]*\}/);
-        if (anyJsonMatch) {
-          actionData = JSON.parse(anyJsonMatch[0]);
-          console.log('Found action data:', actionData);
-        }
-      }
-    } catch (jsonError) {
-      console.log('JSON parsing error:', jsonError.message);
-      console.log('Response text:', chatResponse);
-    }
+        const [profile, products, orders, analytics] = await Promise.all([
+            db.getSellerProfile(userId),
+            db.getProducts(userId),
+            db.getOrders(userId),
+            db.getAnalytics(userId)
+        ]);
 
-    // Execute actions if provided
-    let updateResult = null;
-    if (actionData) {
-      if (actionData.action === 'updateProduct') {
-        const productIndex = sellerData.products.findIndex(p => p.id === actionData.productId);
-        if (productIndex !== -1) {
-          sellerData.products[productIndex] = { ...sellerData.products[productIndex], ...actionData.updates };
-          updateResult = { success: true, message: 'Product updated successfully' };
-        }
-      } else if (actionData.action === 'updateProfile') {
-        sellerData.profile = { ...sellerData.profile, ...actionData.updates };
-        updateResult = { success: true, message: 'Profile updated successfully' };
-      } else if (actionData.action === 'updateOrderStatus') {
-        console.log('Attempting to update order:', actionData.orderId, 'to status:', actionData.status);
-        const order = sellerData.orders.find(o => o.id === actionData.orderId);
-        if (order) {
-          console.log('Found order:', order);
-          order.status = actionData.status;
-          console.log('Updated order:', order);
-          updateResult = { success: true, message: `Order ${actionData.orderId} status updated to ${actionData.status}` };
-        } else {
-          console.log('Order not found:', actionData.orderId);
-          updateResult = { success: false, message: `Order ${actionData.orderId} not found` };
-        }
-      } else if (actionData.action === 'addProduct') {
-        const newProduct = {
-          id: Math.max(...sellerData.products.map(p => p.id)) + 1,
-          ...actionData.productData,
-          status: 'active'
+        return {
+            profile,
+            products,
+            orders,
+            analytics
         };
-        sellerData.products.push(newProduct);
-        updateResult = { success: true, message: 'Product added successfully' };
-      }
+    } catch (error) {
+        console.error('Error fetching seller data:', error);
+        throw error;
     }
+}
 
-    res.json({ 
-      response: chatResponse, 
-      actionExecuted: updateResult !== null,
-      updateResult: updateResult,
-      updatedData: actionData ? sellerData : null 
-    });
-    
-  } catch (error) {
-    console.error("Error with seller chatbot:", error.response ? error.response.data : error.message);
-    res.status(500).json({error: 'Error processing chatbot request'});
-  }
-});
-
-// Main application route - redirect to seller dashboard
+// Routes
 app.get('/', (req, res) => {
-  res.redirect('/seller-dashboard');
+    res.redirect('/login');
 });
 
-// Start the server
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+// Login page
+app.get('/login', (req, res) => {
+    if (req.session.userId) {
+        res.redirect('/seller-dashboard');
+    } else {
+        res.render('login');
+    }
 });
+
+// Login handler
+app.post('/login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        console.log('Login attempt:', { username, password });
+
+        const user = await db.authenticateUser(username, password);
+        console.log('Authentication result:', user);
+
+        if (user) {
+            req.session.userId = user.id;
+            console.log('Login successful, redirecting to dashboard');
+            res.redirect('/seller-dashboard');
+        } else {
+            res.render('login', { error: 'Invalid username or password' });
+        }
+    } catch (error) {
+        console.error('Login error:', error);
+        res.render('login', { error: 'Login failed. Please try again.' });
+    }
+});
+
+// Logout
+app.get('/logout', (req, res) => {
+    req.session.destroy();
+    res.redirect('/login');
+});
+
+// Dashboard
+app.get('/seller-dashboard', requireLogin, async (req, res) => {
+    try {
+        const sellerData = await getSellerData(req.session.userId);
+        res.render('seller-dashboard', { sellerData });
+    } catch (error) {
+        console.error('Error rendering dashboard:', error);
+        res.status(500).send('Error loading dashboard');
+    }
+});
+
+// Profile page
+app.get('/profile', requireLogin, async (req, res) => {
+    try {
+        const sellerData = await getSellerData(req.session.userId);
+        const agentEnabled = await db.getAgentEnabled(req.session.userId);
+        res.render('profile', { sellerData, agentEnabled });
+    } catch (error) {
+        console.error('Error rendering profile:', error);
+        res.status(500).send('Error loading profile');
+    }
+});
+
+// Chat logs page
+app.get('/chat-logs', requireLogin, async (req, res) => {
+    try {
+        const sellerData = await getSellerData(req.session.userId);
+        res.render('chat-logs', { sellerData });
+    } catch (error) {
+        console.error('Error rendering chat logs:', error);
+        res.status(500).send('Error loading chat logs');
+    }
+});
+
+// Order History page
+app.get('/order-history-page', requireLogin, async (req, res) => {
+    try {
+        const sellerData = await getSellerData(req.session.userId);
+        res.render('order-history', { sellerData });
+    } catch (error) {
+        console.error('Error rendering order history:', error);
+        res.status(500).send('Error loading order history');
+    }
+});
+
+// AI Chatbot endpoint
+app.post('/chatbot', requireLogin, async (req, res) => {
+    try {
+        const { message } = req.body;
+        const userId = req.session.userId;
+
+        // Initialize AI agent
+        const aiAgent = new FlipkartSellerAgent();
+        await aiAgent.initialize(userId);
+
+        // Check if agent is enabled
+        if (!aiAgent.isAgentEnabled()) {
+            return res.json({
+                success: false,
+                message: 'AI agent is disabled for this account.'
+            });
+        }
+
+        // Get request info for logging
+        const requestInfo = {
+            userAgent: req.get('User-Agent'),
+            ipAddress: req.ip,
+            sessionId: req.sessionID
+        };
+
+        // Handle message with AI agent
+        const response = await aiAgent.handleMessage(message, requestInfo);
+        
+        console.log('Chatbot response:', response);
+
+        res.json({
+            success: true,
+            message: response
+        });
+
+    } catch (error) {
+        console.error('Chatbot error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error processing your request. Please try again.'
+        });
+    }
+});
+
+// Product management API
+app.post('/api/products', requireLogin, async (req, res) => {
+    try {
+        const productData = req.body;
+        const productId = await db.addProduct(req.session.userId, productData);
+        res.json({ success: true, productId });
+    } catch (error) {
+        console.error('Error adding product:', error);
+        res.status(500).json({ success: false, error: 'Failed to add product' });
+    }
+});
+
+app.put('/api/products/:id', requireLogin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updates = req.body;
+        await db.updateProduct(req.session.userId, parseInt(id), updates);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error updating product:', error);
+        res.status(500).json({ success: false, error: 'Failed to update product' });
+    }
+});
+
+app.delete('/api/products/:id', requireLogin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        await db.deleteProduct(req.session.userId, parseInt(id));
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting product:', error);
+        res.status(500).json({ success: false, error: 'Failed to delete product' });
+    }
+});
+
+// Order management API
+app.put('/api/orders/:id/status', requireLogin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+        await db.updateOrderStatus(req.session.userId, id, status);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error updating order status:', error);
+        res.status(500).json({ success: false, error: 'Failed to update order status' });
+    }
+});
+
+// Chat logs API
+app.get('/api/chat-logs', requireLogin, async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 50;
+        const offset = parseInt(req.query.offset) || 0;
+        const logs = await db.getChatLogsBySeller(req.session.userId, limit, offset);
+        res.json(logs);
+    } catch (error) {
+        console.error('Error fetching chat logs:', error);
+        res.status(500).json({ error: 'Failed to fetch chat logs' });
+    }
+});
+
+// AI Agent toggle API
+app.post('/api/agent-toggle', requireLogin, async (req, res) => {
+    try {
+        const { enabled } = req.body;
+        const updatedStatus = await db.updateAgentEnabled(req.session.userId, enabled);
+        res.json({ 
+            success: true, 
+            message: `AI Agent ${enabled ? 'enabled' : 'disabled'} successfully`,
+            agentEnabled: updatedStatus
+        });
+    } catch (error) {
+        console.error('Error updating agent status:', error);
+        res.status(500).json({ success: false, message: 'Failed to update agent status' });
+    }
+});
+
+// Update seller profile API
+app.post('/api/update-seller-profile', requireLogin, async (req, res) => {
+    try {
+        const updates = req.body;
+        // Map frontend field names to database column names
+        const dbUpdates = {};
+        if (updates.businessName) dbUpdates.business_name = updates.businessName;
+        if (updates.ownerName) dbUpdates.owner_name = updates.ownerName;
+        if (updates.email) dbUpdates.email = updates.email;
+        if (updates.phone) dbUpdates.phone = updates.phone;
+        if (updates.address) dbUpdates.address = updates.address;
+        if (updates.gstNumber) dbUpdates.gst_number = updates.gstNumber;
+
+        const updatedProfile = await db.updateSellerProfile(req.session.userId, dbUpdates);
+        
+        res.json({ 
+            success: true, 
+            message: 'Profile updated successfully', 
+            profile: {
+                businessName: updatedProfile.business_name,
+                ownerName: updatedProfile.owner_name,
+                email: updatedProfile.email,
+                phone: updatedProfile.phone,
+                address: updatedProfile.address,
+                gstNumber: updatedProfile.gst_number,
+                rating: parseFloat(updatedProfile.rating),
+                totalSales: parseFloat(updatedProfile.total_sales)
+            }
+        });
+    } catch (error) {
+        console.error('Error updating profile:', error);
+        res.status(500).json({ success: false, message: 'Failed to update profile' });
+    }
+});
+
+// Order History API
+app.get('/api/order-history', requireLogin, async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 50;
+        const offset = parseInt(req.query.offset) || 0;
+        const filters = {
+            order_status: req.query.order_status,
+            payment_status: req.query.payment_status,
+            date_from: req.query.date_from,
+            date_to: req.query.date_to
+        };
+        
+        const orders = await db.getOrderHistory(req.session.userId, limit, offset, filters);
+        res.json(orders);
+    } catch (error) {
+        console.error('Error fetching order history:', error);
+        res.status(500).json({ error: 'Failed to fetch order history' });
+    }
+});
+
+app.get('/api/order-history/:id', requireLogin, async (req, res) => {
+    try {
+        const orderId = parseInt(req.params.id);
+        const order = await db.getOrderHistoryById(req.session.userId, orderId);
+        
+        if (!order) {
+            return res.status(404).json({ error: 'Order not found' });
+        }
+        
+        res.json(order);
+    } catch (error) {
+        console.error('Error fetching order history by ID:', error);
+        res.status(500).json({ error: 'Failed to fetch order details' });
+    }
+});
+
+app.post('/api/order-history', requireLogin, async (req, res) => {
+    try {
+        const orderData = {
+            ...req.body,
+            user_id: req.session.userId
+        };
+        
+        const orderId = await db.createOrderHistory(orderData);
+        res.status(201).json({ 
+            message: 'Order history created successfully', 
+            order_id: orderId 
+        });
+    } catch (error) {
+        console.error('Error creating order history:', error);
+        res.status(500).json({ error: 'Failed to create order history' });
+    }
+});
+
+app.put('/api/order-history/:id', requireLogin, async (req, res) => {
+    try {
+        const orderId = parseInt(req.params.id);
+        const updates = req.body;
+        
+        const success = await db.updateOrderHistory(req.session.userId, orderId, updates);
+        
+        if (!success) {
+            return res.status(404).json({ error: 'Order not found or no changes made' });
+        }
+        
+        res.json({ message: 'Order history updated successfully' });
+    } catch (error) {
+        console.error('Error updating order history:', error);
+        res.status(500).json({ error: 'Failed to update order history' });
+    }
+});
+
+app.delete('/api/order-history/:id', requireLogin, async (req, res) => {
+    try {
+        const orderId = parseInt(req.params.id);
+        
+        const success = await db.deleteOrderHistory(req.session.userId, orderId);
+        
+        if (!success) {
+            return res.status(404).json({ error: 'Order not found' });
+        }
+        
+        res.json({ message: 'Order history deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting order history:', error);
+        res.status(500).json({ error: 'Failed to delete order history' });
+    }
+});
+
+app.get('/api/order-history-stats', requireLogin, async (req, res) => {
+    try {
+        const stats = await db.getOrderHistoryStats(req.session.userId);
+        res.json(stats);
+    } catch (error) {
+        console.error('Error fetching order history stats:', error);
+        res.status(500).json({ error: 'Failed to fetch order statistics' });
+    }
+});
+
+// Initialize database and start server
+async function startServer() {
+    try {
+        await db.initializeDatabase();
+        console.log('Database initialized successfully');
+        
+        app.listen(PORT, () => {
+            console.log(`Server is running on http://localhost:${PORT}`);
+        });
+    } catch (error) {
+        console.error('Failed to start server:', error);
+        process.exit(1);
+    }
+}
+
+startServer();
