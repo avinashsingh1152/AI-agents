@@ -11,9 +11,11 @@
   "author": "Pravali",
   "license": "ISC",
   "dependencies": {
+    "axios": "^1.10.0",
     "ejs": "latest",
     "express": "latest",
     "express-session": "^1.18.1",
+    "node-fetch": "^3.3.2",
     "pg": "^8.16.2"
   },
   "devDependencies": {

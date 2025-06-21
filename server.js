@@ -53,6 +53,23 @@ async function getSellerData(userId) {
     }
 }
 
+// Helper function to format dates
+function formatDate(dateString) {
+    if (!dateString) return 'N/A';
+    try {
+        return new Date(dateString).toLocaleDateString('en-IN', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        });
+    } catch (error) {
+        return 'N/A';
+    }
+}
+
+// Set up EJS
+app.locals.formatDate = formatDate;
+
 // Routes
 app.get('/', (req, res) => {
     res.redirect('/login');
@@ -69,23 +86,48 @@ app.get('/login', (req, res) => {
 
 // Login handler
 app.post('/login', async (req, res) => {
+    const { username, password } = req.body;
+    
     try {
-        const { username, password } = req.body;
-        console.log('Login attempt:', { username, password });
-
-        const user = await db.authenticateUser(username, password);
-        console.log('Authentication result:', user);
-
-        if (user) {
-            req.session.userId = user.id;
+        const result = await db.authenticateUser(username, password);
+        
+        if (result.success) {
+            req.session.userId = result.user.id;
+            req.session.username = result.user.username;
             console.log('Login successful, redirecting to dashboard');
             res.redirect('/seller-dashboard');
         } else {
-            res.render('login', { error: 'Invalid username or password' });
+            res.render('login', { error: result.message });
         }
     } catch (error) {
         console.error('Login error:', error);
-        res.render('login', { error: 'Login failed. Please try again.' });
+        res.render('login', { error: 'An error occurred during login' });
+    }
+});
+
+// Onboarding route
+app.post('/onboarding', async (req, res) => {
+    const { email, businessName, ownerName } = req.body;
+    
+    try {
+        // Generate a unique username from email
+        const username = email.split('@')[0] + '_' + Date.now().toString().slice(-4);
+        
+        // Create demo account
+        const result = await db.createDemoAccount(username, email, businessName, ownerName);
+        
+        if (result.success) {
+            // Auto-login the user
+            req.session.userId = result.userId;
+            req.session.username = username;
+            console.log('Onboarding successful, redirecting to dashboard');
+            res.redirect('/seller-dashboard');
+        } else {
+            res.render('login', { error: result.message });
+        }
+    } catch (error) {
+        console.error('Onboarding error:', error);
+        res.render('login', { error: 'An error occurred during onboarding' });
     }
 });
 
@@ -140,6 +182,28 @@ app.get('/order-history-page', requireLogin, async (req, res) => {
     }
 });
 
+// WhatsApp Clone page
+app.get('/whatsapp-clone', requireLogin, async (req, res) => {
+    try {
+        const sellerData = await getSellerData(req.session.userId);
+        res.render('whatsapp-clone', { sellerData });
+    } catch (error) {
+        console.error('Error rendering WhatsApp clone:', error);
+        res.status(500).send('Error loading WhatsApp clone');
+    }
+});
+
+// Product History page
+app.get('/product-history', requireLogin, async (req, res) => {
+    try {
+        const sellerData = await getSellerData(req.session.userId);
+        res.render('product-history', { sellerData });
+    } catch (error) {
+        console.error('Error rendering product history:', error);
+        res.status(500).send('Error loading product history');
+    }
+});
+
 // AI Chatbot endpoint
 app.post('/chatbot', requireLogin, async (req, res) => {
     try {
@@ -170,9 +234,16 @@ app.post('/chatbot', requireLogin, async (req, res) => {
         
         console.log('Chatbot response:', response);
 
+        // Extract the message string from the response object
+        const messageContent = response.message || response;
+        const responseType = response.responseType || 'general';
+        const messageCategory = response.messageCategory || 'query';
+
         res.json({
             success: true,
-            message: response
+            message: messageContent,
+            responseType: responseType,
+            messageCategory: messageCategory
         });
 
     } catch (error) {
@@ -205,6 +276,69 @@ app.put('/api/products/:id', requireLogin, async (req, res) => {
     } catch (error) {
         console.error('Error updating product:', error);
         res.status(500).json({ success: false, error: 'Failed to update product' });
+    }
+});
+
+// New API endpoint for updating products with profit tracking
+app.put('/api/products/:id/profit', requireLogin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updates = req.body;
+        const result = await db.updateProductWithProfit(req.session.userId, parseInt(id), updates);
+        res.json({ success: true, ...result });
+    } catch (error) {
+        console.error('Error updating product with profit:', error);
+        res.status(500).json({ success: false, error: 'Failed to update product' });
+    }
+});
+
+// Product history API
+app.get('/api/products/:id/history', requireLogin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const limit = parseInt(req.query.limit) || 50;
+        const offset = parseInt(req.query.offset) || 0;
+        const history = await db.getProductHistory(req.session.userId, parseInt(id), limit, offset);
+        res.json(history);
+    } catch (error) {
+        console.error('Error fetching product history:', error);
+        res.status(500).json({ error: 'Failed to fetch product history' });
+    }
+});
+
+// Profit analytics API
+app.get('/api/profit-analytics', requireLogin, async (req, res) => {
+    try {
+        const days = parseInt(req.query.days) || 30;
+        const analytics = await db.getProfitAnalytics(req.session.userId, days);
+        res.json(analytics);
+    } catch (error) {
+        console.error('Error fetching profit analytics:', error);
+        res.status(500).json({ error: 'Failed to fetch profit analytics' });
+    }
+});
+
+// Product profit history API
+app.get('/api/products/:id/profit-history', requireLogin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const days = parseInt(req.query.days) || 30;
+        const history = await db.getProductProfitHistory(req.session.userId, parseInt(id), days);
+        res.json(history);
+    } catch (error) {
+        console.error('Error fetching product profit history:', error);
+        res.status(500).json({ error: 'Failed to fetch product profit history' });
+    }
+});
+
+// Profit recommendations API
+app.get('/api/profit-recommendations', requireLogin, async (req, res) => {
+    try {
+        const recommendations = await db.calculateProfitRecommendations(req.session.userId);
+        res.json(recommendations);
+    } catch (error) {
+        console.error('Error calculating profit recommendations:', error);
+        res.status(500).json({ error: 'Failed to calculate profit recommendations' });
     }
 });
 

@@ -128,16 +128,16 @@ async function initializeDatabase() {
     if (parseInt(productsExist.rows[0].count) === 0) {
       const userId = await client.query('SELECT id FROM seller_users LIMIT 1');
       const defaultProducts = [
-        ['Wireless Bluetooth Headphones', 7999, 50, 'Electronics', 'High-quality wireless headphones with noise cancellation'],
-        ['Smart Phone Case', 1999, 100, 'Accessories', 'Protective case for smartphones with wireless charging support'],
-        ['USB-C Cable', 999, 200, 'Accessories', 'Fast charging USB-C cable 6ft length'],
-        ['Laptop Stand', 3699, 25, 'Office Supplies', 'Adjustable aluminum laptop stand for better ergonomics']
+        ['Wireless Bluetooth Headphones', 7999, 5999, 50, 'Electronics', 'High-quality wireless headphones with noise cancellation', 25.0],
+        ['Smart Phone Case', 1999, 1499, 100, 'Accessories', 'Protective case for smartphones with wireless charging support', 25.0],
+        ['USB-C Cable', 999, 749, 200, 'Accessories', 'Fast charging USB-C cable 6ft length', 25.0],
+        ['Laptop Stand', 3699, 2799, 25, 'Office Supplies', 'Adjustable aluminum laptop stand for better ergonomics', 24.3]
       ];
 
       for (const product of defaultProducts) {
         await client.query(`
-          INSERT INTO products (user_id, name, price, stock, category, description)
-          VALUES ($1, $2, $3, $4, $5, $6)
+          INSERT INTO products (user_id, name, price, purchase_price, stock, category, description, profit_margin)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         `, [userId.rows[0].id, ...product]);
       }
     }
@@ -169,6 +169,13 @@ async function initializeDatabase() {
         ('ORD003', 'Laptop Stand', 1, 3699)
       `);
     }
+
+    // Fix any existing orders with null order_date
+    await client.query(`
+      UPDATE orders 
+      SET order_date = CURRENT_DATE - INTERVAL '7 days'
+      WHERE order_date IS NULL
+    `);
 
     // Create chat logs table
     await client.query(`
@@ -249,6 +256,65 @@ async function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_order_history_items_product_id ON order_history_items(product_id);
     `);
 
+    // Add new columns to products table for profit tracking
+    await client.query(`
+      ALTER TABLE products 
+      ADD COLUMN IF NOT EXISTS purchase_price DECIMAL(10,2) DEFAULT 0.00,
+      ADD COLUMN IF NOT EXISTS profit_margin DECIMAL(5,2) DEFAULT 0.00,
+      ADD COLUMN IF NOT EXISTS total_profit DECIMAL(15,2) DEFAULT 0.00,
+      ADD COLUMN IF NOT EXISTS units_sold INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS last_price_change TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    `);
+
+    // Create product history table for tracking price changes and profit
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS product_history (
+        id SERIAL PRIMARY KEY,
+        product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES seller_users(id) ON DELETE CASCADE,
+        change_type VARCHAR(50) NOT NULL, -- 'price_change', 'stock_update', 'profit_update'
+        old_value DECIMAL(10,2),
+        new_value DECIMAL(10,2),
+        old_price DECIMAL(10,2),
+        new_price DECIMAL(10,2),
+        old_profit_margin DECIMAL(5,2),
+        new_profit_margin DECIMAL(5,2),
+        profit_impact DECIMAL(15,2) DEFAULT 0.00,
+        units_affected INTEGER DEFAULT 0,
+        change_reason TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      
+      -- Create indexes for product history
+      CREATE INDEX IF NOT EXISTS idx_product_history_product_id ON product_history(product_id);
+      CREATE INDEX IF NOT EXISTS idx_product_history_user_id ON product_history(user_id);
+      CREATE INDEX IF NOT EXISTS idx_product_history_created_at ON product_history(created_at);
+      CREATE INDEX IF NOT EXISTS idx_product_history_change_type ON product_history(change_type);
+    `);
+
+    // Create profit analytics table for aggregated profit data
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS profit_analytics (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES seller_users(id) ON DELETE CASCADE,
+        product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
+        date DATE NOT NULL,
+        total_sales DECIMAL(15,2) DEFAULT 0.00,
+        total_cost DECIMAL(15,2) DEFAULT 0.00,
+        total_profit DECIMAL(15,2) DEFAULT 0.00,
+        profit_margin_percentage DECIMAL(5,2) DEFAULT 0.00,
+        units_sold INTEGER DEFAULT 0,
+        average_price DECIMAL(10,2) DEFAULT 0.00,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      
+      -- Create indexes for profit analytics
+      CREATE INDEX IF NOT EXISTS idx_profit_analytics_user_id ON profit_analytics(user_id);
+      CREATE INDEX IF NOT EXISTS idx_profit_analytics_product_id ON profit_analytics(product_id);
+      CREATE INDEX IF NOT EXISTS idx_profit_analytics_date ON profit_analytics(date);
+    `);
+
     client.release();
     console.log('Database initialized successfully');
   } catch (error) {
@@ -261,11 +327,19 @@ async function initializeDatabase() {
 const db = {
   // Authentication functions
   async authenticateUser(username, password) {
-    const result = await pool.query(
-      'SELECT * FROM seller_users WHERE username = $1 AND password_hash = $2 AND is_active = true',
-      [username, password]
-    );
-    return result.rows[0];
+    try {
+      const query = 'SELECT * FROM seller_users WHERE username = $1 AND password_hash = $2 AND is_active = true';
+      const result = await pool.query(query, [username, password]);
+      
+      if (result.rows.length > 0) {
+        return { success: true, user: result.rows[0] };
+      } else {
+        return { success: false, message: 'Invalid username or password' };
+      }
+    } catch (error) {
+      console.error('Authentication error:', error);
+      return { success: false, message: 'Authentication failed' };
+    }
   },
 
   async getUserById(userId) {
@@ -314,7 +388,18 @@ const db = {
   // Get all products for a user
   async getProducts(userId) {
     const result = await pool.query('SELECT * FROM products WHERE user_id = $1 ORDER BY created_at DESC', [userId]);
-    return result.rows;
+    
+    // Convert numeric strings to numbers for frontend compatibility
+    const products = result.rows.map(product => ({
+      ...product,
+      profit_margin: parseFloat(product.profit_margin || 0),
+      purchase_price: parseFloat(product.purchase_price || 0),
+      price: parseFloat(product.price || 0),
+      stock: parseInt(product.stock || 0),
+      units_sold: parseInt(product.units_sold || 0)
+    }));
+    
+    return products;
   },
 
   // Get individual product by ID
@@ -842,6 +927,400 @@ const db = {
       console.error('Error getting order history stats:', error);
       throw error;
     }
+  },
+
+  // Create demo account for onboarding
+  async createDemoAccount(username, email, businessName, ownerName) {
+    try {
+      // Check if email already exists
+      const existingUser = await pool.query('SELECT id FROM seller_users WHERE email = $1', [email]);
+      if (existingUser.rows.length > 0) {
+        return { success: false, message: 'An account with this email already exists' };
+      }
+
+      // Check if username already exists
+      const existingUsername = await pool.query('SELECT id FROM seller_users WHERE username = $1', [username]);
+      if (existingUsername.rows.length > 0) {
+        return { success: false, message: 'Username already taken, please try again' };
+      }
+
+      // Create new seller user
+      const userQuery = `
+        INSERT INTO seller_users (username, email, password_hash, business_name, is_active, agent_enabled, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+        RETURNING id
+      `;
+      const userResult = await pool.query(userQuery, [
+        username, 
+        email, 
+        'password123', // Default password for demo accounts
+        businessName, 
+        true, 
+        true
+      ]);
+      
+      const userId = userResult.rows[0].id;
+
+      // Create seller profile
+      const profileQuery = `
+        INSERT INTO seller_profile (user_id, business_name, owner_name, email, phone, address, gst_number, rating, total_sales, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+      `;
+      await pool.query(profileQuery, [
+        userId,
+        businessName,
+        ownerName,
+        email,
+        '+91-9876543210', // Default phone
+        'Demo Address, City, State - 123456', // Default address
+        'GST123456789', // Default GST
+        4.5, // Default rating
+        0 // Initial sales
+      ]);
+
+      // Create demo products
+      const demoProducts = [
+        {
+          name: 'Wireless Bluetooth Headphones',
+          category: 'Electronics',
+          price: 1299,
+          purchase_price: 899,
+          stock: 50,
+          description: 'High-quality wireless headphones with noise cancellation',
+          status: 'active'
+        },
+        {
+          name: 'Smartphone Stand',
+          category: 'Accessories',
+          price: 299,
+          purchase_price: 199,
+          stock: 100,
+          description: 'Adjustable smartphone stand for desk use',
+          status: 'active'
+        },
+        {
+          name: 'USB-C Cable',
+          category: 'Electronics',
+          price: 199,
+          purchase_price: 149,
+          stock: 75,
+          description: 'Fast charging USB-C cable, 1 meter length',
+          status: 'active'
+        },
+        {
+          name: 'Wireless Mouse',
+          category: 'Electronics',
+          price: 599,
+          purchase_price: 399,
+          stock: 30,
+          description: 'Ergonomic wireless mouse with precision tracking',
+          status: 'active'
+        },
+        {
+          name: 'Laptop Sleeve',
+          category: 'Accessories',
+          price: 399,
+          purchase_price: 299,
+          stock: 60,
+          description: 'Protective laptop sleeve with soft padding',
+          status: 'active'
+        }
+      ];
+
+      for (const product of demoProducts) {
+        const profitMargin = ((product.price - product.purchase_price) / product.price) * 100;
+        const productQuery = `
+          INSERT INTO products (user_id, name, category, price, purchase_price, stock, description, status, profit_margin, created_at, updated_at)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+        `;
+        await pool.query(productQuery, [
+          userId,
+          product.name,
+          product.category,
+          product.price,
+          product.purchase_price,
+          product.stock,
+          product.description,
+          product.status,
+          profitMargin
+        ]);
+      }
+
+      // Create demo orders
+      const demoOrders = [
+        {
+          customerName: 'Rahul Kumar',
+          total: 1598,
+          status: 'delivered',
+          products: ['Wireless Bluetooth Headphones', 'Smartphone Stand']
+        },
+        {
+          customerName: 'Priya Sharma',
+          total: 798,
+          status: 'processing',
+          products: ['USB-C Cable', 'Laptop Sleeve']
+        },
+        {
+          customerName: 'Amit Patel',
+          total: 599,
+          status: 'shipped',
+          products: ['Wireless Mouse']
+        }
+      ];
+
+      for (const order of demoOrders) {
+        const orderId = 'ORD' + Math.random().toString(36).substr(2, 8).toUpperCase();
+        const orderQuery = `
+          INSERT INTO orders (id, user_id, customer_name, total, status, order_date, created_at, updated_at)
+          VALUES ($1, $2, $3, $4, $5, CURRENT_DATE - INTERVAL '${Math.floor(Math.random() * 30)} days', NOW(), NOW())
+          RETURNING id
+        `;
+        const orderResult = await pool.query(orderQuery, [
+          orderId,
+          userId,
+          order.customerName,
+          order.total,
+          order.status
+        ]);
+        
+        // Add order items
+        for (const productName of order.products) {
+          const productQuery = 'SELECT price FROM products WHERE user_id = $1 AND name = $2 LIMIT 1';
+          const productResult = await pool.query(productQuery, [userId, productName]);
+          
+          if (productResult.rows.length > 0) {
+            const productPrice = productResult.rows[0].price;
+            const orderItemQuery = `
+              INSERT INTO order_items (order_id, product_name, quantity, price)
+              VALUES ($1, $2, $3, $4)
+            `;
+            await pool.query(orderItemQuery, [orderId, productName, 1, productPrice]);
+          }
+        }
+      }
+
+      return { success: true, userId: userId };
+    } catch (error) {
+      console.error('Create demo account error:', error);
+      return { success: false, message: 'Failed to create demo account' };
+    }
+  },
+
+  // Add new functions for product history and profit tracking
+  addProductHistory: async function(userId, productId, changeData) {
+    const query = `
+      INSERT INTO product_history (
+        product_id, user_id, change_type, old_value, new_value, 
+        old_price, new_price, old_profit_margin, new_profit_margin,
+        profit_impact, units_affected, change_reason
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      RETURNING id
+    `;
+    
+    const values = [
+      productId, userId, changeData.changeType, changeData.oldValue, changeData.newValue,
+      changeData.oldPrice, changeData.newPrice, changeData.oldProfitMargin, changeData.newProfitMargin,
+      changeData.profitImpact, changeData.unitsAffected, changeData.changeReason
+    ];
+    
+    try {
+      const result = await this.query(query, values);
+      return result.rows[0];
+    } catch (error) {
+      console.error('Error adding product history:', error);
+      throw error;
+    }
+  },
+
+  getProductHistory: async function(userId, productId, limit = 50, offset = 0) {
+    const query = `
+      SELECT ph.*, p.name as product_name
+      FROM product_history ph
+      JOIN products p ON ph.product_id = p.id
+      WHERE ph.user_id = $1 AND ph.product_id = $2
+      ORDER BY ph.created_at DESC
+      LIMIT $3 OFFSET $4
+    `;
+    
+    try {
+      const result = await this.query(query, [userId, productId, limit, offset]);
+      return result.rows;
+    } catch (error) {
+      console.error('Error getting product history:', error);
+      throw error;
+    }
+  },
+
+  updateProductWithProfit: async function(userId, productId, updates) {
+    const client = await pool.connect();
+    
+    try {
+      await client.query('BEGIN');
+      
+      // Get current product data
+      const currentProduct = await client.query(
+        'SELECT * FROM products WHERE id = $1 AND user_id = $2',
+        [productId, userId]
+      );
+      
+      if (currentProduct.rows.length === 0) {
+        throw new Error('Product not found');
+      }
+      
+      const current = currentProduct.rows[0];
+      
+      // Calculate new profit margin if price or purchase price changed
+      let newProfitMargin = current.profit_margin;
+      let profitImpact = 0;
+      
+      if (updates.price !== undefined || updates.purchase_price !== undefined) {
+        const newPrice = updates.price || current.price;
+        const newPurchasePrice = updates.purchase_price || current.purchase_price;
+        
+        if (newPurchasePrice > 0) {
+          newProfitMargin = ((newPrice - newPurchasePrice) / newPrice) * 100;
+        }
+        
+        // Calculate profit impact based on units sold
+        const priceDiff = (updates.price || current.price) - current.price;
+        profitImpact = priceDiff * current.units_sold;
+      }
+      
+      // Prepare update data
+      const updateData = {
+        ...updates,
+        profit_margin: newProfitMargin,
+        last_price_change: updates.price !== undefined ? 'NOW()' : current.last_price_change
+      };
+      
+      // Update product
+      const updateFields = Object.keys(updateData)
+        .filter(key => updateData[key] !== undefined)
+        .map((key, index) => `${key} = $${index + 3}`)
+        .join(', ');
+      
+      const updateValues = [productId, userId, ...Object.values(updateData).filter(v => v !== undefined)];
+      
+      await client.query(`
+        UPDATE products 
+        SET ${updateFields}, updated_at = NOW()
+        WHERE id = $1 AND user_id = $2
+      `, updateValues);
+      
+      // Add to product history
+      const historyData = {
+        changeType: 'price_change',
+        oldValue: current.price,
+        newValue: updates.price || current.price,
+        oldPrice: current.price,
+        newPrice: updates.price || current.price,
+        oldProfitMargin: current.profit_margin,
+        newProfitMargin: newProfitMargin,
+        profitImpact: profitImpact,
+        unitsAffected: current.units_sold,
+        changeReason: updates.change_reason || 'Price update'
+      };
+      
+      await this.addProductHistory(userId, productId, historyData);
+      
+      await client.query('COMMIT');
+      
+      return { success: true, newProfitMargin, profitImpact };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Error updating product with profit:', error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
+  getProfitAnalytics: async function(userId, days = 30) {
+    const query = `
+      SELECT 
+        p.id,
+        p.name,
+        p.price,
+        p.purchase_price,
+        p.profit_margin,
+        p.total_profit,
+        p.units_sold,
+        p.stock,
+        p.last_price_change,
+        COALESCE(SUM(oi.quantity), 0) as total_ordered,
+        COALESCE(SUM(oi.quantity * oi.price), 0) as total_revenue
+      FROM products p
+      LEFT JOIN order_items oi ON p.name = oi.product_name
+      LEFT JOIN orders o ON oi.order_id = o.id AND o.user_id = $1
+      WHERE p.user_id = $1
+      GROUP BY p.id, p.name, p.price, p.purchase_price, p.profit_margin, 
+               p.total_profit, p.units_sold, p.stock, p.last_price_change
+      ORDER BY p.total_profit DESC
+    `;
+    
+    try {
+      const result = await this.query(query, [userId]);
+      return result.rows;
+    } catch (error) {
+      console.error('Error getting profit analytics:', error);
+      throw error;
+    }
+  },
+
+  getProductProfitHistory: async function(userId, productId, days = 30) {
+    const query = `
+      SELECT 
+        ph.*,
+        p.name as product_name
+      FROM product_history ph
+      JOIN products p ON ph.product_id = p.id
+      WHERE ph.user_id = $1 AND ph.product_id = $2
+      AND ph.created_at >= CURRENT_DATE - INTERVAL '${days} days'
+      ORDER BY ph.created_at DESC
+    `;
+    
+    try {
+      const result = await this.query(query, [userId, productId]);
+      return result.rows;
+    } catch (error) {
+      console.error('Error getting product profit history:', error);
+      throw error;
+    }
+  },
+
+  calculateProfitRecommendations: async function(userId) {
+    const query = `
+      SELECT 
+        p.id,
+        p.name,
+        p.price,
+        p.purchase_price,
+        p.profit_margin,
+        p.units_sold,
+        p.stock,
+        CASE 
+          WHEN p.profit_margin < 20 THEN 'Low profit margin - consider increasing price'
+          WHEN p.profit_margin > 50 THEN 'High profit margin - consider competitive pricing'
+          ELSE 'Good profit margin'
+        END as recommendation,
+        CASE 
+          WHEN p.stock < 10 THEN 'Low stock - consider restocking'
+          WHEN p.stock > 100 THEN 'High stock - consider promotions'
+          ELSE 'Stock level OK'
+        END as stock_recommendation,
+        (p.price - p.purchase_price) * p.units_sold as total_profit_generated
+      FROM products p
+      WHERE p.user_id = $1
+      ORDER BY p.profit_margin DESC
+    `;
+    
+    try {
+      const result = await this.query(query, [userId]);
+      return result.rows;
+    } catch (error) {
+      console.error('Error calculating profit recommendations:', error);
+      throw error;
+    }
   }
 };
 
@@ -876,5 +1355,14 @@ module.exports = {
   getOrderHistoryById: db.getOrderHistoryById,
   updateOrderHistory: db.updateOrderHistory,
   deleteOrderHistory: db.deleteOrderHistory,
-  getOrderHistoryStats: db.getOrderHistoryStats
+  getOrderHistoryStats: db.getOrderHistoryStats,
+  // Demo account functions
+  createDemoAccount: db.createDemoAccount,
+  // Add new functions for product history and profit tracking
+  addProductHistory: db.addProductHistory,
+  getProductHistory: db.getProductHistory,
+  updateProductWithProfit: db.updateProductWithProfit,
+  getProfitAnalytics: db.getProfitAnalytics,
+  getProductProfitHistory: db.getProductProfitHistory,
+  calculateProfitRecommendations: db.calculateProfitRecommendations
 }; 

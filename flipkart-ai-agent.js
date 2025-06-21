@@ -42,7 +42,9 @@ class FlipkartSellerAgent {
                     stock: p.stock,
                     category: p.category,
                     description: p.description,
-                    status: p.status
+                    status: p.status,
+                    units_sold: p.units_sold || 0,
+                    profit_margin: parseFloat(p.profit_margin) || 0
                 })),
                 orders: orders.map(o => ({
                     id: o.id,
@@ -65,340 +67,577 @@ class FlipkartSellerAgent {
         return this.agentEnabled;
     }
 
-    // Main agent processing function
+    // Handle user message and generate response
     async handleMessage(message, requestInfo = {}) {
         const startTime = Date.now();
+        let response = '';
         let responseType = 'general';
         let messageCategory = 'query';
-        let success = true;
-        let errorMessage = null;
-        let tokensUsed = null;
-        let aiResponse = '';
 
-        // Guardrail: Block out-of-scope or privacy-violating questions
-        const forbiddenPatterns = [
-            /other seller/i,
-            /other sellers/i,
-            /customer( |'|"|s|:|\.|,|\?|\!|$)/i,
-            /user( |'|"|s|:|\.|,|\?|\!|$)/i,
-            /personal data/i,
-            /private data/i,
-            /email( |'|"|s|:|\.|,|\?|\!|$)/i,
-            /phone( |'|"|s|:|\.|,|\?|\!|$)/i,
-            /address( |'|"|s|:|\.|,|\?|\!|$)/i,
-            /contact( |'|"|s|:|\.|,|\?|\!|$)/i,
-            /general knowledge/i,
-            /chatgpt/i,
-            /openai/i,
-            /ai model/i,
-            /who are you/i,
-            /tell me a joke/i,
-            /write code/i,
-            /solve math/i,
-            /translate/i,
-            /news/i,
-            /weather/i,
-            /currency/i,
-            /stock price/i,
-            /politics/i,
-            /sports/i,
-            /movie/i,
-            /music/i,
-            /history/i,
-            /science/i,
-            /technology/i
+        try {
+            const lowerMessage = message.toLowerCase();
+
+            // Advanced filtering queries with enhanced patterns
+            if (lowerMessage.includes('show me') || lowerMessage.includes('filter') || lowerMessage.includes('find') || 
+                lowerMessage.includes('get') || lowerMessage.includes('list')) {
+                
+                // General profit product queries
+                if (lowerMessage.includes('profit product') || lowerMessage.includes('profitable product') || 
+                    (lowerMessage.includes('profit') && lowerMessage.includes('product'))) {
+                    response = this.generateProductFilterResponse('profit_margin', 'high');
+                    responseType = 'product_filter';
+                    messageCategory = 'inventory';
+                }
+                // Category filters
+                else if (lowerMessage.includes('fashion') || lowerMessage.includes('clothing')) {
+                    response = this.generateProductFilterResponse('category', 'Fashion');
+                    responseType = 'product_filter';
+                    messageCategory = 'inventory';
+                }
+                else if (lowerMessage.includes('electronics') || lowerMessage.includes('tech')) {
+                    response = this.generateProductFilterResponse('category', 'Electronics');
+                    responseType = 'product_filter';
+                    messageCategory = 'inventory';
+                }
+                else if (lowerMessage.includes('home') || lowerMessage.includes('garden')) {
+                    response = this.generateProductFilterResponse('category', 'Home & Garden');
+                    responseType = 'product_filter';
+                    messageCategory = 'inventory';
+                }
+                else if (lowerMessage.includes('sports') || lowerMessage.includes('outdoor')) {
+                    response = this.generateProductFilterResponse('category', 'Sports & Outdoors');
+                    responseType = 'product_filter';
+                    messageCategory = 'inventory';
+                }
+                else if (lowerMessage.includes('office') || lowerMessage.includes('supplies')) {
+                    response = this.generateProductFilterResponse('category', 'Office Supplies');
+                    responseType = 'product_filter';
+                    messageCategory = 'inventory';
+                }
+                else if (lowerMessage.includes('automotive') || lowerMessage.includes('car')) {
+                    response = this.generateProductFilterResponse('category', 'Automotive');
+                    responseType = 'product_filter';
+                    messageCategory = 'inventory';
+                }
+                else if (lowerMessage.includes('books') || lowerMessage.includes('media')) {
+                    response = this.generateProductFilterResponse('category', 'Books & Media');
+                    responseType = 'product_filter';
+                    messageCategory = 'inventory';
+                }
+                // Stock level filters
+                else if (lowerMessage.includes('low stock') || lowerMessage.includes('stock alert') || lowerMessage.includes('out of stock')) {
+                    response = this.generateProductFilterResponse('stock_level', 'low');
+                    responseType = 'product_filter';
+                    messageCategory = 'inventory';
+                }
+                else if (lowerMessage.includes('medium stock') || lowerMessage.includes('normal stock')) {
+                    response = this.generateProductFilterResponse('stock_level', 'medium');
+                    responseType = 'product_filter';
+                    messageCategory = 'inventory';
+                }
+                else if (lowerMessage.includes('high stock') || lowerMessage.includes('excess stock')) {
+                    response = this.generateProductFilterResponse('stock_level', 'high');
+                    responseType = 'product_filter';
+                    messageCategory = 'inventory';
+                }
+                // Profit margin filters
+                else if (lowerMessage.includes('high profit') || lowerMessage.includes('high margin') || lowerMessage.includes('profitable')) {
+                    response = this.generateProductFilterResponse('profit_margin', 'high');
+                    responseType = 'product_filter';
+                    messageCategory = 'inventory';
+                }
+                else if (lowerMessage.includes('medium profit') || lowerMessage.includes('medium margin')) {
+                    response = this.generateProductFilterResponse('profit_margin', 'medium');
+                    responseType = 'product_filter';
+                    messageCategory = 'inventory';
+                }
+                else if (lowerMessage.includes('low profit') || lowerMessage.includes('low margin') || lowerMessage.includes('unprofitable')) {
+                    response = this.generateProductFilterResponse('profit_margin', 'low');
+                    responseType = 'product_filter';
+                    messageCategory = 'inventory';
+                }
+                // Custom profit margin ranges
+                else if (lowerMessage.includes('greater than') && lowerMessage.includes('%')) {
+                    const marginMatch = message.match(/greater than (\d+(?:\.\d+)?)\s*%/i);
+                    if (marginMatch) {
+                        const minMargin = parseFloat(marginMatch[1]);
+                        response = this.generateProductFilterResponse('profit_margin_custom', `>${minMargin}`);
+                        responseType = 'product_filter';
+                        messageCategory = 'inventory';
+                    }
+                }
+                else if (lowerMessage.includes('more than') && lowerMessage.includes('%')) {
+                    const marginMatch = message.match(/more than (\d+(?:\.\d+)?)\s*%/i);
+                    if (marginMatch) {
+                        const minMargin = parseFloat(marginMatch[1]);
+                        response = this.generateProductFilterResponse('profit_margin_custom', `>${minMargin}`);
+                        responseType = 'product_filter';
+                        messageCategory = 'inventory';
+                    }
+                }
+                else if (lowerMessage.includes('above') && lowerMessage.includes('%')) {
+                    const marginMatch = message.match(/above (\d+(?:\.\d+)?)\s*%/i);
+                    if (marginMatch) {
+                        const minMargin = parseFloat(marginMatch[1]);
+                        response = this.generateProductFilterResponse('profit_margin_custom', `>${minMargin}`);
+                        responseType = 'product_filter';
+                        messageCategory = 'inventory';
+                    }
+                }
+                else if (lowerMessage.includes('less than') && lowerMessage.includes('%')) {
+                    const marginMatch = message.match(/less than (\d+(?:\.\d+)?)\s*%/i);
+                    if (marginMatch) {
+                        const maxMargin = parseFloat(marginMatch[1]);
+                        response = this.generateProductFilterResponse('profit_margin_custom', `<${maxMargin}`);
+                        responseType = 'product_filter';
+                        messageCategory = 'inventory';
+                    }
+                }
+                else if (lowerMessage.includes('below') && lowerMessage.includes('%')) {
+                    const marginMatch = message.match(/below (\d+(?:\.\d+)?)\s*%/i);
+                    if (marginMatch) {
+                        const maxMargin = parseFloat(marginMatch[1]);
+                        response = this.generateProductFilterResponse('profit_margin_custom', `<${maxMargin}`);
+                        responseType = 'product_filter';
+                        messageCategory = 'inventory';
+                    }
+                }
+                else if (lowerMessage.includes('between') && lowerMessage.includes('%')) {
+                    const marginMatch = message.match(/between (\d+(?:\.\d+)?)\s*% and (\d+(?:\.\d+)?)\s*%/i);
+                    if (marginMatch) {
+                        const minMargin = parseFloat(marginMatch[1]);
+                        const maxMargin = parseFloat(marginMatch[2]);
+                        response = this.generateProductFilterResponse('profit_margin_custom', `${minMargin}-${maxMargin}`);
+                        responseType = 'product_filter';
+                        messageCategory = 'inventory';
+                    }
+                }
+                // More flexible profit margin patterns
+                else if (lowerMessage.includes('%') && (lowerMessage.includes('profit') || lowerMessage.includes('margin'))) {
+                    // Match patterns like "5% profit margin", "> 5%", "5 % profit", etc.
+                    const marginMatch = message.match(/(?:>|greater than|more than|above)\s*(\d+(?:\.\d+)?)\s*%/i);
+                    if (marginMatch) {
+                        const minMargin = parseFloat(marginMatch[1]);
+                        response = this.generateProductFilterResponse('profit_margin_custom', `>${minMargin}`);
+                        responseType = 'product_filter';
+                        messageCategory = 'inventory';
+                    } else {
+                        // Match patterns like "5% profit margin", "5 % profit"
+                        const simpleMatch = message.match(/(\d+(?:\.\d+)?)\s*%\s*(?:profit|margin)/i);
+                        if (simpleMatch) {
+                            const margin = parseFloat(simpleMatch[1]);
+                            response = this.generateProductFilterResponse('profit_margin_custom', `>${margin}`);
+                            responseType = 'product_filter';
+                            messageCategory = 'inventory';
+                        }
+                    }
+                }
+                // Price range filters
+                else if (lowerMessage.includes('under') && lowerMessage.includes('₹')) {
+                    const priceMatch = message.match(/under ₹(\d+)/i);
+                    if (priceMatch) {
+                        const maxPrice = parseInt(priceMatch[1]);
+                        response = this.generateProductFilterResponse('price_range', `0-${maxPrice}`);
+                        responseType = 'product_filter';
+                        messageCategory = 'inventory';
+                    }
+                }
+                else if (lowerMessage.includes('above') && lowerMessage.includes('₹')) {
+                    const priceMatch = message.match(/above ₹(\d+)/i);
+                    if (priceMatch) {
+                        const minPrice = parseInt(priceMatch[1]);
+                        response = this.generateProductFilterResponse('price_range', `${minPrice}-999999`);
+                        responseType = 'product_filter';
+                        messageCategory = 'inventory';
+                    }
+                }
+                else if (lowerMessage.includes('between') && lowerMessage.includes('₹')) {
+                    const priceMatch = message.match(/between ₹(\d+) and ₹(\d+)/i);
+                    if (priceMatch) {
+                        const minPrice = parseInt(priceMatch[1]);
+                        const maxPrice = parseInt(priceMatch[2]);
+                        response = this.generateProductFilterResponse('price_range', `${minPrice}-${maxPrice}`);
+                        responseType = 'product_filter';
+                        messageCategory = 'inventory';
+                    }
+                }
+                // Units sold filters
+                else if (lowerMessage.includes('best selling') || lowerMessage.includes('top selling') || lowerMessage.includes('popular')) {
+                    response = this.generateProductFilterResponse('units_sold', 'high');
+                    responseType = 'product_filter';
+                    messageCategory = 'inventory';
+                }
+                else if (lowerMessage.includes('slow selling') || lowerMessage.includes('low sales')) {
+                    response = this.generateProductFilterResponse('units_sold', 'low');
+                    responseType = 'product_filter';
+                    messageCategory = 'inventory';
+                }
+                // Combined filters
+                else if (lowerMessage.includes('profitable') && lowerMessage.includes('electronics')) {
+                    response = this.generateCombinedFilterResponse(['category', 'profit_margin'], ['Electronics', 'high']);
+                    responseType = 'product_filter';
+                    messageCategory = 'inventory';
+                }
+                else if (lowerMessage.includes('low stock') && lowerMessage.includes('fashion')) {
+                    response = this.generateCombinedFilterResponse(['category', 'stock_level'], ['Fashion', 'low']);
+                    responseType = 'product_filter';
+                    messageCategory = 'inventory';
+                }
+                // Highest selling with profit margin filter (relaxed)
+                else if ((lowerMessage.includes('highest selling') || lowerMessage.includes('best selling')) && 
+                         (lowerMessage.includes('profit') || lowerMessage.includes('margin') || lowerMessage.includes('%'))) {
+                    // Extract profit margin from the message
+                    let minMargin = 5; // default
+                    const marginMatch = message.match(/(\d+(?:\.\d+)?)\s*%/i);
+                    if (marginMatch) {
+                        minMargin = parseFloat(marginMatch[1]);
+                    }
+
+                    // Optionally extract customer name
+                    let customerName = null;
+                    const customerMatch = message.match(/customer\s+([\w\s]+)/i);
+                    if (customerMatch) {
+                        customerName = customerMatch[1].trim();
+                    }
+
+                    // Get products with minimum profit margin, sorted by units_sold desc
+                    let { products } = this.sellerData;
+                    if (customerName) {
+                        // If customer filter is present, filter products that were sold to this customer
+                        const orders = this.sellerData.orders.filter(o => o.customerName && o.customerName.toLowerCase().includes(customerName.toLowerCase()));
+                        const productNames = new Set();
+                        orders.forEach(o => {
+                            if (Array.isArray(o.products)) {
+                                o.products.forEach(p => productNames.add(p.name));
+                            }
+                        });
+                        products = products.filter(p => productNames.has(p.name));
+                    }
+                    const filteredProducts = products
+                        .filter(p => (p.profit_margin || 0) >= minMargin)
+                        .sort((a, b) => (b.units_sold || 0) - (a.units_sold || 0))
+                        .slice(0, 5);
+
+                    response = this.generateProductFilterResponse('combined', 
+                        `Top 5 highest selling products with profit margin >= ${minMargin}%${customerName ? ' for customer ' + customerName : ''}`, filteredProducts);
+                    responseType = 'product_filter';
+                    messageCategory = 'inventory';
+                }
+                // Default to product list if no specific filter matches
+                else {
+                    response = this.generateProductList();
+                    responseType = 'product_list';
+                    messageCategory = 'inventory';
+                }
+            }
+            // Product history queries
+            else if (lowerMessage.includes('product history') || lowerMessage.includes('product details') || 
+                lowerMessage.includes('history') && (lowerMessage.includes('product') || lowerMessage.includes('item'))) {
+                
+                // Extract product name from message
+                const productName = this.extractProductName(message);
+                if (productName) {
+                    response = this.generateProductHistory(productName);
+                    responseType = 'product_history';
+                    messageCategory = 'inventory';
+                } else {
+                    response = this.generateProductList();
+                    responseType = 'product_list';
+                    messageCategory = 'inventory';
+                }
+            }
+            // Prediction queries
+            else if (lowerMessage.includes('prediction') || lowerMessage.includes('forecast') || lowerMessage.includes('sales prediction')) {
+                const productName = this.extractProductName(message);
+                response = this.generateSalesPrediction(productName);
+                responseType = 'sales_prediction';
+                messageCategory = 'analytics';
+            }
+            else if (lowerMessage.includes('business prediction') || lowerMessage.includes('business forecast')) {
+                response = this.generateSalesPrediction();
+                responseType = 'business_prediction';
+                messageCategory = 'analytics';
+            }
+            // Product management queries
+            else if (lowerMessage.includes('add product') || lowerMessage.includes('new product')) {
+                response = this.generateAddProductForm();
+                responseType = 'product_form';
+                messageCategory = 'inventory';
+            }
+            else if (lowerMessage.includes('update product') || lowerMessage.includes('change price') || lowerMessage.includes('edit product')) {
+                response = this.generateUpdateProductForm();
+                responseType = 'product_form';
+                messageCategory = 'inventory';
+            }
+            else if (lowerMessage.includes('product list') || lowerMessage.includes('all products') || lowerMessage.includes('show products')) {
+                response = this.generateProductList();
+                responseType = 'product_list';
+                messageCategory = 'inventory';
+            }
+            // Order management queries
+            else if (lowerMessage.includes('order list') || lowerMessage.includes('all orders') || lowerMessage.includes('show orders')) {
+                response = this.generateOrderList();
+                responseType = 'order_list';
+                messageCategory = 'orders';
+            }
+            else if (lowerMessage.includes('update order') || lowerMessage.includes('change order status')) {
+                response = this.generateUpdateOrderForm();
+                responseType = 'order_form';
+                messageCategory = 'orders';
+            }
+            // Business analytics queries
+            else if (lowerMessage.includes('business summary') || lowerMessage.includes('business overview') || lowerMessage.includes('dashboard')) {
+                response = this.generateBusinessSummary();
+                responseType = 'business_summary';
+                messageCategory = 'analytics';
+            }
+            else if (lowerMessage.includes('sales report') || lowerMessage.includes('sales analytics') || lowerMessage.includes('revenue')) {
+                response = this.generateSalesReport();
+                responseType = 'sales_report';
+                messageCategory = 'analytics';
+            }
+            else if (lowerMessage.includes('selling history') || lowerMessage.includes('order history')) {
+                response = this.generateSellingHistory();
+                responseType = 'selling_history';
+                messageCategory = 'analytics';
+            }
+            // General profit queries (without "product" keyword)
+            else if (lowerMessage.includes('profit') && !lowerMessage.includes('product')) {
+                if (lowerMessage.includes('high') || lowerMessage.includes('good') || lowerMessage.includes('best')) {
+                    response = this.generateProductFilterResponse('profit_margin', 'high');
+                    responseType = 'product_filter';
+                    messageCategory = 'inventory';
+                } else if (lowerMessage.includes('low') || lowerMessage.includes('bad') || lowerMessage.includes('worst')) {
+                    response = this.generateProductFilterResponse('profit_margin', 'low');
+                    responseType = 'product_filter';
+                    messageCategory = 'inventory';
+                } else {
+                    // Default to high profit products when just asking for "profit"
+                    response = this.generateProductFilterResponse('profit_margin', 'high');
+                    responseType = 'product_filter';
+                    messageCategory = 'inventory';
+                }
+            }
+            // Stock and inventory queries
+            else if (lowerMessage.includes('stock alert') || lowerMessage.includes('inventory')) {
+                response = this.generateStockAlert();
+                responseType = 'stock_alert';
+                messageCategory = 'inventory';
+            }
+            // Profile management queries
+            else if (lowerMessage.includes('update profile') || lowerMessage.includes('change profile') || lowerMessage.includes('business info')) {
+                response = this.generateProfileUpdateForm();
+                responseType = 'profile_form';
+                messageCategory = 'profile';
+            }
+            // Help and general queries
+            else if (lowerMessage.includes('help') || lowerMessage.includes('what can you do') || lowerMessage.includes('capabilities')) {
+                response = this.generateHelpMessage();
+                responseType = 'help';
+                messageCategory = 'general';
+            }
+            // Advanced analytics queries
+            else if (lowerMessage.includes('profit analysis') || lowerMessage.includes('profit report') || lowerMessage.includes('margin analysis')) {
+                response = this.generateProfitAnalysis();
+                responseType = 'profit_analysis';
+                messageCategory = 'analytics';
+            }
+            else if (lowerMessage.includes('performance report') || lowerMessage.includes('business performance')) {
+                response = this.generatePerformanceReport();
+                responseType = 'performance_report';
+                messageCategory = 'analytics';
+            }
+            // Quick actions
+            else if (lowerMessage.includes('quick actions') || lowerMessage.includes('quick help')) {
+                response = this.generateQuickActions();
+                responseType = 'quick_actions';
+                messageCategory = 'general';
+            }
+            // Specific check for "product which I have sold"
+            else if (lowerMessage.includes('product which i have sold') || lowerMessage.includes('products which i have sold')) {
+                const filteredProducts = this.sellerData.products.filter(p => (p.units_sold || 0) > 0);
+                response = this.generateProductFilterResponse('combined', 'Products that have been sold', filteredProducts);
+                responseType = 'product_filter';
+                messageCategory = 'inventory';
+            }
+            // Add after existing product filter patterns in handleMessage
+            // Advanced sold product queries
+            else if (lowerMessage.match(/(sold products|products sold|view sold|show sold|sold to customer|sold in|never sold|unsold|products with sales|products without sales|sold between|sold from|sold on|sold during|product which I have sold|products I have sold|my sold products|what I have sold|which I have sold|I have sold)/)) {
+                let filteredProducts = this.sellerData.products;
+                let filterDescription = '';
+                let minUnitsSold = null, maxUnitsSold = null, category = null, customer = null, startDate = null, endDate = null, minProfit = null;
+                
+                // Sold products
+                if (lowerMessage.includes('never sold') || lowerMessage.includes('unsold') || lowerMessage.includes('products without sales')) {
+                    filteredProducts = filteredProducts.filter(p => (p.units_sold || 0) === 0);
+                    filterDescription = 'Products never sold';
+                } else if (lowerMessage.includes('sold products') || lowerMessage.includes('products sold') || lowerMessage.includes('view sold') || lowerMessage.includes('show sold') || lowerMessage.includes('products with sales') || lowerMessage.includes('product which I have sold') || lowerMessage.includes('products I have sold') || lowerMessage.includes('my sold products') || lowerMessage.includes('what I have sold')) {
+                    filteredProducts = filteredProducts.filter(p => (p.units_sold || 0) > 0);
+                    filterDescription = 'Products that have been sold';
+                }
+                // By customer
+                const customerMatch = message.match(/customer\s+([\w\s]+)/i);
+                if (customerMatch) {
+                    customer = customerMatch[1].trim();
+                    const orders = this.sellerData.orders.filter(o => o.customerName && o.customerName.toLowerCase().includes(customer.toLowerCase()));
+                    const productNames = new Set();
+                    orders.forEach(o => {
+                        if (Array.isArray(o.products)) {
+                            o.products.forEach(p => productNames.add(p.name));
+                        }
+                    });
+                    filteredProducts = filteredProducts.filter(p => productNames.has(p.name));
+                    filterDescription += (filterDescription ? ', ' : '') + `sold to customer ${customer}`;
+                }
+                // By category
+                const categoryMatch = message.match(/category\s+([\w &]+)/i) || message.match(/in ([A-Za-z &]+) category/i);
+                if (categoryMatch) {
+                    category = categoryMatch[1].trim();
+                    filteredProducts = filteredProducts.filter(p => p.category && p.category.toLowerCase().includes(category.toLowerCase()));
+                    filterDescription += (filterDescription ? ', ' : '') + `in category ${category}`;
+                }
+                // By profit margin
+                const profitMatch = message.match(/profit margin (?:>|greater than|more than|above)\s*(\d+(?:\.\d+)?)%?/i);
+                if (profitMatch) {
+                    minProfit = parseFloat(profitMatch[1]);
+                    filteredProducts = filteredProducts.filter(p => (p.profit_margin || 0) > minProfit);
+                    filterDescription += (filterDescription ? ', ' : '') + `with profit margin > ${minProfit}%`;
+                }
+                // By units sold
+                const unitsSoldMatch = message.match(/sold more than (\d+) units?/i);
+                if (unitsSoldMatch) {
+                    minUnitsSold = parseInt(unitsSoldMatch[1]);
+                    filteredProducts = filteredProducts.filter(p => (p.units_sold || 0) > minUnitsSold);
+                    filterDescription += (filterDescription ? ', ' : '') + `sold more than ${minUnitsSold} units`;
+                }
+                // By date range (if order data has dates)
+                const dateRangeMatch = message.match(/sold between ([\w\s]+) and ([\w\s]+)/i);
+                if (dateRangeMatch) {
+                    startDate = new Date(dateRangeMatch[1]);
+                    endDate = new Date(dateRangeMatch[2]);
+                    const orders = this.sellerData.orders.filter(o => {
+                        const d = new Date(o.date || o.order_date);
+                        return d >= startDate && d <= endDate;
+                    });
+                    const productNames = new Set();
+                    orders.forEach(o => {
+                        if (Array.isArray(o.products)) {
+                            o.products.forEach(p => productNames.add(p.name));
+                        }
+                    });
+                    filteredProducts = filteredProducts.filter(p => productNames.has(p.name));
+                    filterDescription += (filterDescription ? ', ' : '') + `sold between ${dateRangeMatch[1]} and ${dateRangeMatch[2]}`;
+                }
+                // By single date/month/year
+                const monthMatch = message.match(/sold in ([A-Za-z]+) (\d{4})/i);
+                if (monthMatch) {
+                    const month = monthMatch[1];
+                    const year = monthMatch[2];
+                    const orders = this.sellerData.orders.filter(o => {
+                        const d = new Date(o.date || o.order_date);
+                        return d.toLocaleString('default', { month: 'long' }).toLowerCase() === month.toLowerCase() && d.getFullYear() == year;
+                    });
+                    const productNames = new Set();
+                    orders.forEach(o => {
+                        if (Array.isArray(o.products)) {
+                            o.products.forEach(p => productNames.add(p.name));
+                        }
+                    });
+                    filteredProducts = filteredProducts.filter(p => productNames.has(p.name));
+                    filterDescription += (filterDescription ? ', ' : '') + `sold in ${month} ${year}`;
+                }
+                // Compose response
+                if (!filterDescription) filterDescription = 'Advanced product search';
+                response = this.generateProductFilterResponse('combined', filterDescription, filteredProducts);
+                responseType = 'product_filter';
+                messageCategory = 'inventory';
+            }
+            // Default response
+            else {
+                response = this.generateGeneralResponse(message);
+                responseType = 'general';
+                messageCategory = 'query';
+            }
+
+            // Log the interaction
+            await this.logInteraction(message, response, responseType, messageCategory, startTime, requestInfo);
+
+            return {
+                success: true,
+                message: response,
+                responseType,
+                messageCategory
+            };
+
+        } catch (error) {
+            console.error('Error in handleMessage:', error);
+            
+            // Log the error
+            await this.logInteraction(message, '', 'error', 'error', startTime, requestInfo, error.message);
+
+            return {
+                success: false,
+                message: 'Sorry, I encountered an error. Please try again.',
+                responseType: 'error',
+                messageCategory: 'error'
+            };
+        }
+    }
+
+    // Extract product name from message
+    extractProductName(message) {
+        const lowerMessage = message.toLowerCase();
+        
+        // Common product keywords
+        const productKeywords = [
+            'headphones', 'bluetooth', 'wireless', 'case', 'phone case', 'cable', 'usb', 
+            'mouse', 'wireless mouse', 'laptop', 'sleeve', 'stand', 'smartphone stand'
         ];
-        for (const pattern of forbiddenPatterns) {
-            if (pattern.test(message)) {
-                aiResponse = "I'm sorry, I can only assist you with your own seller account, products, orders, analytics, and business profile on this ecommerce platform. I cannot provide information about other sellers, customers, or any unrelated topics.";
-                await this.logInteraction({
-                    seller_id: this.currentSellerId,
-                    user_message: message,
-                    ai_response: aiResponse,
-                    response_type: 'blocked',
-                    message_category: 'forbidden',
-                    processing_time_ms: 0,
-                    tokens_used: 0,
-                    success: false,
-                    error_message: 'Blocked forbidden query',
-                    user_agent: requestInfo.userAgent,
-                    ip_address: requestInfo.ipAddress,
-                    session_id: requestInfo.sessionId
-                });
-                return aiResponse;
+        
+        // Check for exact product names from inventory
+        for (const product of this.sellerData.products) {
+            if (lowerMessage.includes(product.name.toLowerCase())) {
+                return product.name;
             }
         }
         
+        // Check for product keywords
+        for (const keyword of productKeywords) {
+            if (lowerMessage.includes(keyword)) {
+                // Find the best matching product
+                const matchingProduct = this.sellerData.products.find(p => 
+                    p.name.toLowerCase().includes(keyword) || keyword.includes(p.name.toLowerCase())
+                );
+                if (matchingProduct) {
+                    return matchingProduct.name;
+                }
+            }
+        }
+        
+        return null;
+    }
+
+    // Log interaction to database
+    async logInteraction(message, response, responseType, messageCategory, startTime, requestInfo, errorMessage = null) {
         try {
-            const lowerMessage = message.toLowerCase();
-            
-            // Determine response type and category based on message content
-            if (lowerMessage.includes('product') && (lowerMessage.includes('list') || lowerMessage.includes('show') || lowerMessage.includes('all'))) {
-                responseType = 'product_list';
-                messageCategory = 'inventory';
-                aiResponse = this.generateProductList();
-                return aiResponse;
-            }
-            
-            if (lowerMessage.includes('order') && (lowerMessage.includes('list') || lowerMessage.includes('show') || lowerMessage.includes('all'))) {
-                responseType = 'order_list';
-                messageCategory = 'orders';
-                aiResponse = this.generateOrderList();
-                return aiResponse;
-            }
-            
-            if (lowerMessage.includes('summary') || lowerMessage.includes('report') || lowerMessage.includes('overview')) {
-                responseType = 'business_summary';
-                messageCategory = 'analytics';
-                aiResponse = this.generateBusinessSummary();
-                return aiResponse;
-            }
-            
-            // Handle other specific queries with formatted responses
-            if (lowerMessage.includes('low stock') || lowerMessage.includes('out of stock')) {
-                responseType = 'stock_alert';
-                messageCategory = 'inventory';
-                const lowStockProducts = this.sellerData.products.filter(p => p.stock < 10);
-                const outOfStockProducts = this.sellerData.products.filter(p => p.stock === 0);
-                
-                aiResponse = `<div class="ai-summary-container">
-                    <div class="summary-header">
-                        <h3>⚠️ Stock Alerts</h3>
-                    </div>
-                    
-                    ${lowStockProducts.length > 0 ? `
-                        <div class="summary-section alert-section">
-                            <h4>🟡 Low Stock Items</h4>
-                            <div class="alert-list">
-                                ${lowStockProducts.map(p => `
-                                    <div class="alert-item">
-                                        <span class="alert-icon">⚠️</span>
-                                        <span class="alert-text">${p.name} - Only ${p.stock} left (₹${p.price})</span>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    ` : ''}
-                    
-                    ${outOfStockProducts.length > 0 ? `
-                        <div class="summary-section alert-section">
-                            <h4>🔴 Out of Stock Items</h4>
-                            <div class="alert-list">
-                                ${outOfStockProducts.map(p => `
-                                    <div class="alert-item">
-                                        <span class="alert-icon">❌</span>
-                                        <span class="alert-text">${p.name} - Out of stock (₹${p.price})</span>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    ` : ''}
-                    
-                    <div class="summary-footer">
-                        <p>Would you like me to help you restock these items? 🚀</p>
-                    </div>
-                </div>`;
-                
-                return aiResponse;
-            }
-
-            // Handle sales queries with real data
-            if (lowerMessage.includes('sales') && (lowerMessage.includes('last') || lowerMessage.includes('5') || lowerMessage.includes('days'))) {
-                responseType = 'sales_report';
-                messageCategory = 'analytics';
-                
-                // Get sales data for last 5 days
-                const salesData = await this.getSalesData(5);
-                aiResponse = this.generateSalesReport(salesData);
-                return aiResponse;
-            }
-
-            // Handle product history queries
-            if (lowerMessage.includes('product') && (lowerMessage.includes('history') || lowerMessage.includes('performance') || lowerMessage.includes('details'))) {
-                responseType = 'product_history';
-                messageCategory = 'products';
-                
-                aiResponse = this.generateProductHistory();
-                return aiResponse;
-            }
-
-            // Handle selling history queries
-            if (lowerMessage.includes('selling') && lowerMessage.includes('history')) {
-                responseType = 'selling_history';
-                messageCategory = 'analytics';
-                
-                aiResponse = this.generateSellingHistory();
-                return aiResponse;
-            }
-
-            // Handle selling history queries (more flexible patterns)
-            if ((lowerMessage.includes('selling') || lowerMessage.includes('sales')) && 
-                (lowerMessage.includes('history') || lowerMessage.includes('performance') || lowerMessage.includes('analytics'))) {
-                responseType = 'selling_history';
-                messageCategory = 'analytics';
-                
-                aiResponse = this.generateSellingHistory();
-                return aiResponse;
-            }
-
-            // Handle business performance and history queries
-            if ((lowerMessage.includes('business') || lowerMessage.includes('performance') || lowerMessage.includes('history')) && 
-                (lowerMessage.includes('my') || lowerMessage.includes('show') || lowerMessage.includes('get'))) {
-                responseType = 'selling_history';
-                messageCategory = 'analytics';
-                
-                aiResponse = this.generateSellingHistory();
-                return aiResponse;
-            }
-
-            // Handle order history queries (more flexible patterns)
-            if (lowerMessage.includes('order') || lowerMessage.includes('orders')) {
-                responseType = 'order_history';
-                messageCategory = 'orders';
-                
-                aiResponse = this.generateOrderHistory();
-                return aiResponse;
-            }
-
-            // Handle top selling products queries
-            if ((lowerMessage.includes('most') || lowerMessage.includes('top') || lowerMessage.includes('best')) && 
-                (lowerMessage.includes('selling') || lowerMessage.includes('sold') || lowerMessage.includes('products'))) {
-                responseType = 'top_products';
-                messageCategory = 'analytics';
-                
-                const topProducts = await this.getTopSellingProducts();
-                aiResponse = this.generateTopProductsReport(topProducts);
-                return aiResponse;
-            }
-            
-            // For other queries, use Azure OpenAI
-            responseType = 'ai_generated';
-            messageCategory = 'general';
-            
-            const systemPrompt = `You are a specialized ecommerce seller assistant for Flipkart. Your role is to help the current seller (ID: ${this.currentSellerId}) manage their business on this platform.
-
-DATABASE STRUCTURE:
-- seller_users: id, username, email, business_name, agent_enabled
-- seller_profile: user_id, business_name, owner_name, email, phone, address, gst_number, rating, total_sales
-- products: id, user_id, name, price, stock, category, description, status
-- orders: id, user_id, customer_name, total, status, order_date
-- order_items: id, order_id, product_name, quantity, price
-- chat_logs: seller_id, user_message, ai_response, response_type, message_category
-
-IMPORTANT RULES:
-1. ONLY help with the current seller's own data (products, orders, profile, analytics)
-2. NEVER share information about other sellers or customers
-3. NEVER provide personal information about customers
-4. ALWAYS verify data belongs to the current seller before sharing
-5. For business-related queries about the seller's own data, provide helpful insights
-6. If asked about other sellers' data, politely decline and redirect to their own business
-7. Use REAL data from the database, never generate fake information
-8. ALWAYS provide order details when customers ask about orders or order history
-9. Be helpful and provide comprehensive order information for the current seller
-
-ALLOWED QUERIES:
-- Product management (add, update, delete, view seller's own products)
-- Order management (view, update status of seller's own orders)
-- Business profile updates
-- Sales analytics and reports for seller's own business
-- Product history, sales history, and performance metrics for seller's own data
-- Inventory management
-- Business insights and recommendations based on seller's own data
-- Top selling products analysis using real sales data
-- Order history and details for the current seller's business
-- ANY order-related queries (order history, my orders, view orders, etc.)
-
-FORBIDDEN QUERIES:
-- Information about other sellers
-- Customer personal information
-- Competitor analysis using other sellers' data
-- General knowledge questions unrelated to ecommerce
-- Questions about other platforms or businesses
-- Generating fake data or statistics
-- Providing order details for other sellers or customers
-
-When responding:
-- Use clear, structured formatting with bullet points and sections
-- Provide actionable insights and recommendations
-- Format responses with HTML for better presentation
-- Be helpful and professional while maintaining data security
-- Always base responses on actual database data
-- ALWAYS provide order details when asked about orders
-- Be comprehensive and helpful with order information
-
-Current seller context: ${this.sellerData.profile.businessName} (ID: ${this.currentSellerId})`;
-
-            const data = {
-                model: 'gpt-4o',
-                messages: [
-                    {
-                        role: 'system',
-                        content: systemPrompt
-                    },
-                    {
-                        role: 'user',
-                        content: message
-                    }
-                ],
-                max_tokens: 500,
-                temperature: 0.7
-            };
-
-            const response = await fetch('http://10.83.64.112/gpt-4o/chat/completions?api-version=2023-07-01-preview', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Ocp-Apim-Subscription-Key': 'eadd36ff773c4c659b2372403eba44f8'
-                },
-                body: JSON.stringify(data)
-            });
-
-            const responseData = await response.json();
-            aiResponse = responseData.choices[0].message.content.trim();
-            tokensUsed = responseData.usage?.total_tokens || null;
-            console.log('Chatbot response:', aiResponse);
-            
-            return aiResponse;
-        } catch (error) {
-            console.error('Azure OpenAI API error:', error);
-            success = false;
-            errorMessage = error.message;
-            aiResponse = `I'm sorry, I'm having trouble connecting to my AI service right now. But I can help you with basic queries about your business! Try asking me about:
-            <ul>
-                <li>📊 Business summary</li>
-                <li>📦 Product inventory</li>
-                <li>📋 Order history</li>
-                <li>⚠️ Stock alerts</li>
-            </ul>`;
-            
-            return aiResponse;
-        } finally {
-            // Log the interaction
             const processingTime = Date.now() - startTime;
-            await this.logInteraction({
+            
+            await db.insertChatLog({
                 seller_id: this.currentSellerId,
                 user_message: message,
-                ai_response: aiResponse,
+                ai_response: response,
                 response_type: responseType,
                 message_category: messageCategory,
                 processing_time_ms: processingTime,
-                tokens_used: tokensUsed,
-                success: success,
+                tokens_used: null, // Not using external AI for these responses
+                success: !errorMessage,
                 error_message: errorMessage,
                 user_agent: requestInfo.userAgent,
                 ip_address: requestInfo.ipAddress,
                 session_id: requestInfo.sessionId
             });
-        }
-    }
-
-    // Log interaction to database
-    async logInteraction(logData) {
-        try {
-            await db.insertChatLog(logData);
         } catch (error) {
             console.error('Error logging interaction:', error);
-            // Don't throw error to avoid breaking the main flow
         }
     }
 
@@ -917,118 +1156,13 @@ When the user asks for operations, respond naturally and indicate if you can per
         };
     }
 
-    // Generate formatted business summary
-    generateBusinessSummary() {
-        const { profile, products, orders, analytics } = this.sellerData;
-        
-        const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
-        const lowStockProducts = products.filter(p => p.stock < 10);
-        const outOfStockProducts = products.filter(p => p.stock === 0);
-        const categoryBreakdown = products.reduce((acc, p) => {
-            acc[p.category] = (acc[p.category] || 0) + 1;
-            return acc;
-        }, {});
-        
-        return `<div class="ai-summary-container">
-            <div class="summary-header">
-                <h3>📊 ${profile.businessName} - Business Summary</h3>
-            </div>
-            
-            <div class="summary-grid">
-                <div class="summary-card business-overview">
-                    <h4>🏢 Business Overview</h4>
-                    <ul>
-                        <li><strong>Owner:</strong> ${profile.ownerName}</li>
-                        <li><strong>Total Revenue:</strong> ₹${totalRevenue.toLocaleString()}</li>
-                        <li><strong>Rating:</strong> ${profile.rating}/5 ⭐</li>
-                        <li><strong>Total Products:</strong> ${products.length}</li>
-                        <li><strong>Total Orders:</strong> ${orders.length}</li>
-                    </ul>
-                </div>
-                
-                <div class="summary-card inventory-status">
-                    <h4>📦 Product Inventory</h4>
-                    <ul>
-                        <li><strong>Categories:</strong> ${Object.keys(categoryBreakdown).length}</li>
-                        <li><strong>Low Stock Items:</strong> <span class="warning">${lowStockProducts.length}</span></li>
-                        <li><strong>Out of Stock:</strong> <span class="danger">${outOfStockProducts.length}</span></li>
-                    </ul>
-                </div>
-            </div>
-            
-            <div class="summary-section">
-                <h4>📈 Top Products by Stock</h4>
-                <div class="product-list">
-                    ${products.slice(0, 5).map((p, i) => `
-                        <div class="product-item">
-                            <span class="product-number">${i + 1}.</span>
-                            <span class="product-name"><strong>${p.name}</strong></span>
-                            <span class="product-price">₹${p.price}</span>
-                            <span class="product-stock">Stock: ${p.stock}</span>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-            
-            ${lowStockProducts.length > 0 ? `
-                <div class="summary-section alert-section">
-                    <h4>⚠️ Low Stock Alerts</h4>
-                    <div class="alert-list">
-                        ${lowStockProducts.map(p => `
-                            <div class="alert-item">
-                                <span class="alert-icon">⚠️</span>
-                                <span class="alert-text">${p.name} - Only ${p.stock} left</span>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            ` : ''}
-            
-            <div class="summary-section">
-                <h4>📋 Recent Orders</h4>
-                <div class="order-list">
-                    ${orders.slice(0, 3).map(o => `
-                        <div class="order-item">
-                            <span class="order-id"><strong>${o.id}</strong></span>
-                            <span class="order-customer">${o.customerName}</span>
-                            <span class="order-amount">₹${o.total}</span>
-                            <span class="order-status status-${o.status}">${o.status}</span>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-            
-            <div class="summary-section insights">
-                <h4>💡 Quick Insights</h4>
-                <div class="insights-grid">
-                    <div class="insight-item">
-                        <span class="insight-label">Average Order Value:</span>
-                        <span class="insight-value">₹${(totalRevenue / orders.length).toFixed(0)}</span>
-                    </div>
-                    <div class="insight-item">
-                        <span class="insight-label">Most Popular Category:</span>
-                        <span class="insight-value">${Object.entries(categoryBreakdown).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A'}</span>
-                    </div>
-                    <div class="insight-item">
-                        <span class="insight-label">Orders Pending:</span>
-                        <span class="insight-value">${orders.filter(o => o.status === 'processing').length}</span>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="summary-footer">
-                <p>Would you like me to dive deeper into any specific area? 🚀</p>
-            </div>
-        </div>`;
-    }
-
-    // Generate formatted product list
+    // Generate product list
     generateProductList() {
         const { products } = this.sellerData;
         
         return `<div class="ai-summary-container">
             <div class="summary-header">
-                <h3>📦 Product Inventory - ${products.length} Items</h3>
+                <h3>📦 Product Inventory (${products.length} items)</h3>
             </div>
             
             <div class="summary-section">
@@ -1039,37 +1173,38 @@ When the user asks for operations, respond naturally and indicate if you can per
                             <span class="product-number">${i + 1}</span>
                             <span class="product-name"><strong>${p.name}</strong></span>
                             <span class="product-category">${p.category}</span>
-                            <span class="product-price">₹${p.price}</span>
-                            <span class="product-stock ${p.stock < 10 ? 'low-stock' : ''}">Stock: ${p.stock}</span>
+                            <span class="product-price">₹${p.price.toLocaleString()}</span>
+                            <span class="product-stock">Stock: ${p.stock}</span>
+                            <span class="product-profit">Profit: ${(p.profit_margin || 0).toFixed(1)}%</span>
                         </div>
                     `).join('')}
                 </div>
             </div>
             
             <div class="summary-footer">
-                <p>Need to update any product details? Just ask me! 🚀</p>
+                <p>Ask me about any specific product's history! Try: "Show me Wireless Headphones history" 📊</p>
             </div>
         </div>`;
     }
 
-    // Generate formatted order list
+    // Generate order list
     generateOrderList() {
         const { orders } = this.sellerData;
         
         return `<div class="ai-summary-container">
             <div class="summary-header">
-                <h3>📋 Order History - ${orders.length} Orders</h3>
+                <h3>📋 Order Management (${orders.length} orders)</h3>
             </div>
             
             <div class="summary-section">
-                <h4>📦 All Orders</h4>
+                <h4>📦 Recent Orders</h4>
                 <div class="order-list">
-                    ${orders.map((o, i) => `
+                    ${orders.slice(0, 5).map((o, i) => `
                         <div class="order-item">
                             <span class="order-number">${i + 1}</span>
                             <span class="order-id"><strong>${o.id}</strong></span>
                             <span class="order-customer">${o.customerName}</span>
-                            <span class="order-amount">₹${o.total}</span>
+                            <span class="order-amount">₹${o.total.toLocaleString()}</span>
                             <span class="order-status status-${o.status}">${o.status}</span>
                         </div>
                     `).join('')}
@@ -1077,61 +1212,30 @@ When the user asks for operations, respond naturally and indicate if you can per
             </div>
             
             <div class="summary-footer">
-                <p>Need to update any order status? Just ask me! 🚀</p>
+                <p>Need to update an order status? Just ask! 📝</p>
             </div>
         </div>`;
     }
 
-    // Get sales data for last N days
-    async getSalesData(days) {
-        try {
-            const query = `
-                SELECT 
-                    DATE(order_date) as sale_date,
-                    COUNT(*) as total_orders,
-                    SUM(total) as total_sales,
-                    AVG(total) as avg_order_value
-                FROM orders 
-                WHERE user_id = $1 
-                AND order_date >= CURRENT_DATE - INTERVAL '${days} days'
-                GROUP BY DATE(order_date)
-                ORDER BY sale_date DESC
-            `;
-            
-            const result = await db.query(query, [this.currentSellerId]);
-            return result.rows;
-        } catch (error) {
-            console.error('Error fetching sales data:', error);
-            return [];
-        }
-    }
-
-    // Generate sales report with real data
-    generateSalesReport(salesData) {
-        if (!salesData || salesData.length === 0) {
-            return `<div class="ai-summary-container">
-                <div class="summary-header">
-                    <h3>📊 Sales Report - Last 5 Days</h3>
-                </div>
-                <div class="summary-section">
-                    <p>No sales data found for the last 5 days.</p>
-                </div>
-            </div>`;
-        }
-
-        const totalSales = salesData.reduce((sum, day) => sum + parseFloat(day.total_sales), 0);
-        const totalOrders = salesData.reduce((sum, day) => sum + parseInt(day.total_orders), 0);
-        const avgOrderValue = totalOrders > 0 ? totalSales / totalOrders : 0;
-
+    // Generate business summary
+    generateBusinessSummary() {
+        const { products, orders } = this.sellerData;
+        
+        const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
+        const totalOrders = orders.length;
+        const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+        const totalProducts = products.length;
+        const lowStockProducts = products.filter(p => p.stock < 10).length;
+        
         return `<div class="ai-summary-container">
             <div class="summary-header">
-                <h3>📊 Sales Report - Last 5 Days</h3>
+                <h3>📊 Business Overview</h3>
             </div>
             
             <div class="summary-grid">
                 <div class="summary-card">
-                    <h4>💰 Total Sales</h4>
-                    <div class="stats-number">₹${totalSales.toLocaleString()}</div>
+                    <h4>💰 Total Revenue</h4>
+                    <div class="stats-number">₹${totalRevenue.toLocaleString()}</div>
                 </div>
                 <div class="summary-card">
                     <h4>📦 Total Orders</h4>
@@ -1141,69 +1245,91 @@ When the user asks for operations, respond naturally and indicate if you can per
                     <h4>📈 Avg Order Value</h4>
                     <div class="stats-number">₹${avgOrderValue.toFixed(0)}</div>
                 </div>
+                <div class="summary-card">
+                    <h4>🛍️ Total Products</h4>
+                    <div class="stats-number">${totalProducts}</div>
+                </div>
             </div>
             
             <div class="summary-section">
-                <h4>📅 Daily Breakdown</h4>
-                <div class="sales-list">
-                    ${salesData.map(day => `
-                        <div class="sales-item">
-                            <span class="sales-date">${new Date(day.sale_date).toLocaleDateString()}</span>
-                            <span class="sales-orders">${day.total_orders} orders</span>
-                            <span class="sales-amount">₹${parseFloat(day.total_sales).toLocaleString()}</span>
-                        </div>
-                    `).join('')}
+                <h4>⚠️ Alerts</h4>
+                <div class="insights-grid">
+                    <div class="insight-item">
+                        <span class="insight-label">Low Stock Items</span>
+                        <span class="insight-value">${lowStockProducts} products</span>
+                    </div>
                 </div>
             </div>
             
             <div class="summary-footer">
-                <p>Need more detailed analytics? Just ask! 📊</p>
+                <p>Your business is performing well! Keep up the great work! 🚀</p>
             </div>
         </div>`;
     }
 
-    // Generate product history
-    generateProductHistory() {
+    // Generate stock alert
+    generateStockAlert() {
         const { products } = this.sellerData;
+        
+        const lowStockProducts = products.filter(p => p.stock < 10);
+        const outOfStockProducts = products.filter(p => p.stock === 0);
         
         return `<div class="ai-summary-container">
             <div class="summary-header">
-                <h3>📋 Product History - ${products.length} Items</h3>
+                <h3>⚠️ Stock Alerts</h3>
             </div>
             
-            <div class="summary-section">
-                <h4>🛍️ All Products</h4>
-                <div class="product-list">
-                    ${products.map((p, i) => `
-                        <div class="product-item">
-                            <span class="product-number">${i + 1}</span>
-                            <span class="product-name"><strong>${p.name}</strong></span>
-                            <span class="product-category">${p.category}</span>
-                            <span class="product-price">₹${p.price}</span>
-                            <span class="product-stock">Stock: ${p.stock}</span>
-                        </div>
-                    `).join('')}
+            ${lowStockProducts.length > 0 ? `
+                <div class="summary-section alert-section">
+                    <h4>🟡 Low Stock Items</h4>
+                    <div class="alert-list">
+                        ${lowStockProducts.map(p => `
+                            <div class="alert-item">
+                                <span class="alert-icon">⚠️</span>
+                                <span class="alert-text">${p.name} - Only ${p.stock} left (₹${p.price.toLocaleString()})</span>
+                            </div>
+                        `).join('')}
+                    </div>
                 </div>
-            </div>
+            ` : ''}
+            
+            ${outOfStockProducts.length > 0 ? `
+                <div class="summary-section alert-section">
+                    <h4>🔴 Out of Stock Items</h4>
+                    <div class="alert-list">
+                        ${outOfStockProducts.map(p => `
+                            <div class="alert-item">
+                                <span class="alert-icon">❌</span>
+                                <span class="alert-text">${p.name} - Out of stock (₹${p.price.toLocaleString()})</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            ` : ''}
+            
+            ${lowStockProducts.length === 0 && outOfStockProducts.length === 0 ? `
+                <div class="summary-section">
+                    <h4>✅ All Good!</h4>
+                    <p>No stock alerts at the moment. All products have sufficient stock.</p>
+                </div>
+            ` : ''}
             
             <div class="summary-footer">
-                <p>Need more detailed product history? Just ask! 📋</p>
+                <p>Would you like me to help you restock these items? 🚀</p>
             </div>
         </div>`;
     }
 
     // Generate selling history
     generateSellingHistory() {
-        const { products, orders } = this.sellerData;
+        const { orders } = this.sellerData;
         
-        // Calculate analytics
         const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
         const totalOrders = orders.length;
         const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
         const completedOrders = orders.filter(o => o.status === 'delivered').length;
         const pendingOrders = orders.filter(o => ['processing', 'confirmed', 'shipped'].includes(o.status)).length;
         
-        // Get recent orders (last 5)
         const recentOrders = orders.slice(0, 5);
         
         return `<div class="ai-summary-container">
@@ -1245,256 +1371,1063 @@ When the user asks for operations, respond naturally and indicate if you can per
                 </div>
             </div>
             
-            <div class="summary-section">
-                <h4>📋 Order Status Breakdown</h4>
-                <div class="insights-grid">
-                    <div class="insight-item">
-                        <span class="insight-label">Delivered</span>
-                        <span class="insight-value">${completedOrders} orders</span>
-                    </div>
-                    <div class="insight-item">
-                        <span class="insight-label">Pending</span>
-                        <span class="insight-value">${pendingOrders} orders</span>
-                    </div>
-                    <div class="insight-item">
-                        <span class="insight-label">Cancelled/Returned</span>
-                        <span class="insight-value">${orders.filter(o => ['cancelled', 'returned'].includes(o.status)).length} orders</span>
-                    </div>
-                </div>
-            </div>
-            
             <div class="summary-footer">
                 <p>Your business is performing well! Keep up the great work! 🚀</p>
             </div>
         </div>`;
     }
 
-    // Generate top products report
-    generateTopProductsReport(topProducts) {
-        if (!topProducts || topProducts.length === 0) {
-            return `<div class="ai-summary-container">
-                <div class="summary-header">
-                    <h3>📊 Top Selling Products</h3>
-                </div>
-                <div class="summary-section">
-                    <h4>📋 No Sales Data Available</h4>
-                    <p>Currently, there are no products with sales data in your database. This could be because:</p>
-                    <ul>
-                        <li>No orders have been placed yet</li>
-                        <li>Product names in orders don't match product names in inventory</li>
-                        <li>Orders exist but order_items are missing</li>
-                    </ul>
-                    <p><strong>Available Products:</strong></p>
-                    <div class="product-list">
-                        ${this.sellerData.products.map((p, i) => `
-                            <div class="product-item">
-                                <span class="product-number">${i + 1}</span>
-                                <span class="product-name"><strong>${p.name}</strong></span>
-                                <span class="product-category">${p.category}</span>
-                                <span class="product-price">₹${p.price}</span>
-                                <span class="product-stock">Stock: ${p.stock}</span>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-                <div class="summary-footer">
-                    <p>To see top selling products, you need to have orders with matching product names! 📦</p>
-                </div>
-            </div>`;
-        }
-
-        return `<div class="ai-summary-container">
-            <div class="summary-header">
-                <h3>📊 Top Selling Products</h3>
-            </div>
-            
-            <div class="summary-section">
-                <h4>🛍️ Top Selling Products</h4>
-                <div class="product-list">
-                    ${topProducts.map((p, i) => `
-                        <div class="product-item">
-                            <span class="product-number">${i + 1}</span>
-                            <span class="product-name"><strong>${p.name}</strong></span>
-                            <span class="product-category">${p.category}</span>
-                            <span class="product-price">₹${p.price}</span>
-                            <span class="product-stock">Sold: ${p.quantity_sold || 0}</span>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-            
-            <div class="summary-footer">
-                <p>These are your actual top-performing products based on sales data! 🚀</p>
-            </div>
-        </div>`;
-    }
-
-    // Get top selling products from database
-    async getTopSellingProducts() {
-        try {
-            // Query to get products with their sales data using correct column names
-            // Only show products that have actual sales (quantity_sold > 0)
-            const query = `
-                SELECT 
-                    p.id,
-                    p.name,
-                    p.price,
-                    p.category,
-                    p.stock,
-                    COALESCE(SUM(oi.quantity), 0) as quantity_sold,
-                    COALESCE(SUM(oi.quantity * oi.price), 0) as total_revenue
-                FROM products p
-                LEFT JOIN order_items oi ON p.name = oi.product_name
-                LEFT JOIN orders o ON oi.order_id = o.id
-                WHERE p.user_id = $1
-                GROUP BY p.id, p.name, p.price, p.category, p.stock
-                HAVING COALESCE(SUM(oi.quantity), 0) > 0
-                ORDER BY quantity_sold DESC, total_revenue DESC
-                LIMIT 10
-            `;
-            
-            const result = await db.query(query, [this.currentSellerId]);
-            
-            // If no products with sales found, show a message
-            if (result.rows.length === 0) {
-                console.log('No products with sales found. Checking available data...');
-                
-                // Debug query to see what products and order_items exist
-                const debugQuery = `
-                    SELECT 
-                        'products' as table_name,
-                        name,
-                        price,
-                        category
-                    FROM products 
-                    WHERE user_id = $1
-                    UNION ALL
-                    SELECT 
-                        'order_items' as table_name,
-                        product_name as name,
-                        price,
-                        quantity::text as category
-                    FROM order_items oi
-                    JOIN orders o ON oi.order_id = o.id
-                    WHERE o.user_id = $1
-                `;
-                
-                const debugResult = await db.query(debugQuery, [this.currentSellerId]);
-                console.log('Available data:', debugResult.rows);
-                
-                return [];
-            }
-            
-            return result.rows;
-        } catch (error) {
-            console.error('Error fetching top selling products:', error);
-            // Fallback to basic product list if query fails
-            return this.sellerData.products.slice(0, 5).map(p => ({
-                ...p,
-                quantity_sold: 0,
-                total_revenue: 0
-            }));
-        }
-    }
-
-    // Generate order history
-    generateOrderHistory() {
+    // Generate sales report
+    generateSalesReport() {
         const { orders } = this.sellerData;
         
-        if (!orders || orders.length === 0) {
-            return `<div class="ai-summary-container">
-                <div class="summary-header">
-                    <h3>📋 Order History</h3>
-                </div>
-                <div class="summary-section">
-                    <p>No orders found in your history.</p>
-                </div>
-            </div>`;
-        }
-
-        // Calculate order statistics
-        const totalOrders = orders.length;
         const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
-        const avgOrderValue = totalRevenue / totalOrders;
-        const statusBreakdown = orders.reduce((acc, order) => {
-            acc[order.status] = (acc[order.status] || 0) + 1;
-            return acc;
-        }, {});
-
-        // Get recent orders (last 5)
-        const recentOrders = orders.slice(0, 5);
-
+        const totalOrders = orders.length;
+        const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+        
         return `<div class="ai-summary-container">
             <div class="summary-header">
-                <h3>📋 Your Order History</h3>
+                <h3>💰 Sales Report</h3>
             </div>
             
             <div class="summary-grid">
                 <div class="summary-card">
-                    <h4>📦 Total Orders</h4>
-                    <div class="stats-number">${totalOrders}</div>
-                </div>
-                <div class="summary-card">
                     <h4>💰 Total Revenue</h4>
                     <div class="stats-number">₹${totalRevenue.toLocaleString()}</div>
+                </div>
+                <div class="summary-card">
+                    <h4>📦 Total Orders</h4>
+                    <div class="stats-number">${totalOrders}</div>
                 </div>
                 <div class="summary-card">
                     <h4>📈 Avg Order Value</h4>
                     <div class="stats-number">₹${avgOrderValue.toFixed(0)}</div>
                 </div>
                 <div class="summary-card">
-                    <h4>📅 Recent Orders</h4>
-                    <div class="stats-number">${recentOrders.length}</div>
+                    <h4>📊 Performance</h4>
+                    <div class="stats-number">${totalOrders > 0 ? 'Good' : 'No Sales'}</div>
                 </div>
             </div>
             
+            <div class="summary-footer">
+                <p>Need more detailed analytics? Visit the Product History page! 📊</p>
+            </div>
+        </div>`;
+    }
+
+    // Generate forms (placeholder methods)
+    generateAddProductForm() {
+        return `<div class="ai-summary-container">
+            <div class="summary-header">
+                <h3>➕ Add New Product</h3>
+            </div>
             <div class="summary-section">
-                <h4>📊 Order Status Breakdown</h4>
-                <div class="insights-grid">
-                    ${Object.entries(statusBreakdown).map(([status, count]) => `
-                        <div class="insight-item">
-                            <span class="insight-label">${status.charAt(0).toUpperCase() + status.slice(1)}</span>
-                            <span class="insight-value">${count} orders</span>
-                        </div>
-                    `).join('')}
-                </div>
+                <p>To add a new product, please use the dashboard interface or visit the Product History page for advanced product management.</p>
+            </div>
+        </div>`;
+    }
+
+    generateUpdateProductForm() {
+        return `<div class="ai-summary-container">
+            <div class="summary-header">
+                <h3>✏️ Update Product</h3>
+            </div>
+            <div class="summary-section">
+                <p>To update product details, please use the dashboard interface or visit the Product History page for advanced product management.</p>
+            </div>
+        </div>`;
+    }
+
+    generateUpdateOrderForm() {
+        return `<div class="ai-summary-container">
+            <div class="summary-header">
+                <h3>✏️ Update Order</h3>
+            </div>
+            <div class="summary-section">
+                <p>To update order status, please use the dashboard interface or visit the Order History page.</p>
+            </div>
+        </div>`;
+    }
+
+    generateProfileUpdateForm() {
+        return `<div class="ai-summary-container">
+            <div class="summary-header">
+                <h3>👤 Update Profile</h3>
+            </div>
+            <div class="summary-section">
+                <p>To update your business profile, please use the Profile page in the dashboard.</p>
+            </div>
+        </div>`;
+    }
+
+    // Generate help message
+    generateHelpMessage() {
+        return `<div class="ai-summary-container">
+            <div class="summary-header">
+                <h3>🤖 How Can I Help You?</h3>
             </div>
             
             <div class="summary-section">
-                <h4>📅 Recent Orders (Last 5)</h4>
-                <div class="order-list">
-                    ${recentOrders.map((order, i) => `
-                        <div class="order-item">
-                            <span class="order-number">${i + 1}</span>
-                            <span class="order-id"><strong>${order.id}</strong></span>
-                            <span class="order-customer">${order.customerName}</span>
-                            <span class="order-amount">₹${order.total.toLocaleString()}</span>
-                            <span class="order-status status-${order.status}">${order.status}</span>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-            
-            <div class="summary-section">
-                <h4>🔍 How to Access Full Order History</h4>
+                <h4>📦 Product Management</h4>
                 <div class="insights-grid">
                     <div class="insight-item">
-                        <span class="insight-label">📱 Dashboard</span>
-                        <span class="insight-value">Click "Order History" in navigation</span>
+                        <span class="insight-label">📋 Product List</span>
+                        <span class="insight-value">"Show me all products"</span>
                     </div>
                     <div class="insight-item">
-                        <span class="insight-label">📋 Full Details</span>
-                        <span class="insight-value">View, edit, and manage all orders</span>
+                        <span class="insight-label">📊 Product History</span>
+                        <span class="insight-value">"Show me Wireless Headphones history"</span>
                     </div>
                     <div class="insight-item">
-                        <span class="insight-label">🔧 Actions</span>
-                        <span class="insight-value">Add, update, or delete orders</span>
+                        <span class="insight-label">➕ Add Product</span>
+                        <span class="insight-value">"Add a new product"</span>
+                    </div>
+                    <div class="insight-item">
+                        <span class="insight-label">✏️ Update Product</span>
+                        <span class="insight-value">"Update product price"</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="summary-section">
+                <h4>📋 Order Management</h4>
+                <div class="insights-grid">
+                    <div class="insight-item">
+                        <span class="insight-label">📋 Order List</span>
+                        <span class="insight-value">"Show me all orders"</span>
+                    </div>
+                    <div class="insight-item">
+                        <span class="insight-label">✏️ Update Order</span>
+                        <span class="insight-value">"Update order status"</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="summary-section">
+                <h4>📊 Business Analytics</h4>
+                <div class="insights-grid">
+                    <div class="insight-item">
+                        <span class="insight-label">📈 Business Summary</span>
+                        <span class="insight-value">"Show business overview"</span>
+                    </div>
+                    <div class="insight-item">
+                        <span class="insight-label">💰 Sales Report</span>
+                        <span class="insight-value">"Show sales analytics"</span>
+                    </div>
+                    <div class="insight-item">
+                        <span class="insight-label">📋 Order History</span>
+                        <span class="insight-value">"Show selling history"</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="summary-section">
+                <h4>⚠️ Inventory Alerts</h4>
+                <div class="insights-grid">
+                    <div class="insight-item">
+                        <span class="insight-label">🚨 Stock Alerts</span>
+                        <span class="insight-value">"Show low stock items"</span>
                     </div>
                 </div>
             </div>
             
             <div class="summary-footer">
-                <p>You can view your complete order history and manage orders from the Order History page! 📋</p>
+                <p>Just ask me anything about your business! I'm here to help! 🚀</p>
+            </div>
+        </div>`;
+    }
+
+    // Generate general response
+    generateGeneralResponse(message) {
+        return `<div class="ai-summary-container">
+            <div class="summary-header">
+                <h3>🤖 I'm Here to Help!</h3>
+            </div>
+            
+            <div class="summary-section">
+                <p>I can help you with:</p>
+                <ul>
+                    <li>📦 <strong>Product Management:</strong> View, add, update products</li>
+                    <li>📊 <strong>Product History:</strong> Get detailed history of any product</li>
+                    <li>📋 <strong>Order Management:</strong> View and update orders</li>
+                    <li>📈 <strong>Business Analytics:</strong> Sales reports and insights</li>
+                    <li>⚠️ <strong>Stock Alerts:</strong> Low stock notifications</li>
+                </ul>
+                
+                <p><strong>Try asking:</strong></p>
+                <ul>
+                    <li>"Show me Wireless Headphones history"</li>
+                    <li>"What's my business summary?"</li>
+                    <li>"Show me all products"</li>
+                    <li>"Any low stock alerts?"</li>
+                </ul>
+            </div>
+            
+            <div class="summary-footer">
+                <p>Need help? Just ask! 🚀</p>
+            </div>
+        </div>`;
+    }
+
+    // Helper function to format dates
+    formatDate(dateString) {
+        if (!dateString) return 'N/A';
+        try {
+            return new Date(dateString).toLocaleDateString('en-IN', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        } catch (error) {
+            return 'N/A';
+        }
+    }
+
+    // Handle advanced product filtering queries
+    generateProductFilterResponse(filterType, filterValue, customProducts = null) {
+        const { products } = this.sellerData;
+        let filteredProducts = customProducts || products;
+        let filterDescription = '';
+
+        // If custom products are provided, use them; otherwise apply filter
+        if (!customProducts) {
+            switch (filterType) {
+                case 'category':
+                    filteredProducts = products.filter(p => p.category.toLowerCase() === filterValue.toLowerCase());
+                    filterDescription = `Products in ${filterValue} category`;
+                    break;
+                case 'price_range':
+                    const [min, max] = filterValue.split('-').map(v => parseFloat(v));
+                    filteredProducts = products.filter(p => p.price >= min && p.price <= max);
+                    filterDescription = `Products between ₹${min.toLocaleString()} - ₹${max.toLocaleString()}`;
+                    break;
+                case 'stock_level':
+                    switch (filterValue) {
+                        case 'low':
+                            filteredProducts = products.filter(p => p.stock < 10);
+                            filterDescription = 'Low stock products (< 10 units)';
+                            break;
+                        case 'medium':
+                            filteredProducts = products.filter(p => p.stock >= 10 && p.stock <= 50);
+                            filterDescription = 'Medium stock products (10-50 units)';
+                            break;
+                        case 'high':
+                            filteredProducts = products.filter(p => p.stock > 50);
+                            filterDescription = 'High stock products (> 50 units)';
+                            break;
+                    }
+                    break;
+                case 'profit_margin':
+                    switch (filterValue) {
+                        case 'low':
+                            filteredProducts = products.filter(p => (p.profit_margin || 0) < 15);
+                            filterDescription = 'Low profit margin products (< 15%)';
+                            break;
+                        case 'medium':
+                            filteredProducts = products.filter(p => (p.profit_margin || 0) >= 15 && (p.profit_margin || 0) <= 30);
+                            filterDescription = 'Medium profit margin products (15-30%)';
+                            break;
+                        case 'high':
+                            filteredProducts = products.filter(p => (p.profit_margin || 0) > 30);
+                            filterDescription = 'High profit margin products (> 30%)';
+                            break;
+                    }
+                    break;
+                case 'profit_margin_custom':
+                    if (filterValue.startsWith('>')) {
+                        const minMargin = parseFloat(filterValue.substring(1));
+                        filteredProducts = products.filter(p => (p.profit_margin || 0) > minMargin);
+                        filterDescription = `Products with profit margin > ${minMargin}%`;
+                    } else if (filterValue.startsWith('<')) {
+                        const maxMargin = parseFloat(filterValue.substring(1));
+                        filteredProducts = products.filter(p => (p.profit_margin || 0) < maxMargin);
+                        filterDescription = `Products with profit margin < ${maxMargin}%`;
+                    } else if (filterValue.includes('-')) {
+                        const [minMargin, maxMargin] = filterValue.split('-').map(v => parseFloat(v));
+                        filteredProducts = products.filter(p => (p.profit_margin || 0) >= minMargin && (p.profit_margin || 0) <= maxMargin);
+                        filterDescription = `Products with profit margin between ${minMargin}% - ${maxMargin}%`;
+                    }
+                    break;
+                case 'units_sold':
+                    const avgUnitsSold = products.reduce((sum, p) => sum + (p.units_sold || 0), 0) / products.length;
+                    switch (filterValue) {
+                        case 'high':
+                            filteredProducts = products.filter(p => (p.units_sold || 0) > avgUnitsSold * 1.5);
+                            filterDescription = 'Best selling products (above average)';
+                            break;
+                        case 'low':
+                            filteredProducts = products.filter(p => (p.units_sold || 0) < avgUnitsSold * 0.5);
+                            filterDescription = 'Slow selling products (below average)';
+                            break;
+                    }
+                    break;
+                case 'combined':
+                    filterDescription = filterValue;
+                    break;
+            }
+        }
+
+        if (filteredProducts.length === 0) {
+            return `<div class="ai-summary-container">
+                <div class="summary-header">
+                    <h3>🔍 No Products Found</h3>
+                </div>
+                <div class="summary-section">
+                    <p>No products match your filter: <strong>${filterDescription}</strong></p>
+                    <p>Try adjusting your filter criteria or view all products.</p>
+                </div>
+            </div>`;
+        }
+
+        // Calculate insights for filtered products
+        const totalValue = filteredProducts.reduce((sum, p) => sum + (p.price * p.stock), 0);
+        const avgProfitMargin = filteredProducts.reduce((sum, p) => sum + (p.profit_margin || 0), 0) / filteredProducts.length;
+        const lowStockCount = filteredProducts.filter(p => p.stock < 10).length;
+        const totalUnitsSold = filteredProducts.reduce((sum, p) => sum + (p.units_sold || 0), 0);
+        const totalRevenue = filteredProducts.reduce((sum, p) => sum + (p.price * (p.units_sold || 0)), 0);
+
+        return `<div class="ai-summary-container">
+            <div class="summary-header">
+                <h3>📊 ${filterDescription} (${filteredProducts.length} products)</h3>
+            </div>
+            
+            <div class="summary-grid">
+                <div class="summary-card">
+                    <h4>💰 Total Value</h4>
+                    <div class="stats-number">₹${totalValue.toLocaleString()}</div>
+                </div>
+                <div class="summary-card">
+                    <h4>📈 Avg Profit Margin</h4>
+                    <div class="stats-number">${avgProfitMargin.toFixed(1)}%</div>
+                </div>
+                <div class="summary-card">
+                    <h4>⚠️ Low Stock Items</h4>
+                    <div class="stats-number">${lowStockCount}</div>
+                </div>
+                <div class="summary-card">
+                    <h4>📦 Total Stock</h4>
+                    <div class="stats-number">${filteredProducts.reduce((sum, p) => sum + p.stock, 0)}</div>
+                </div>
+                <div class="summary-card">
+                    <h4>🛒 Units Sold</h4>
+                    <div class="stats-number">${totalUnitsSold.toLocaleString()}</div>
+                </div>
+                <div class="summary-card">
+                    <h4>💵 Total Revenue</h4>
+                    <div class="stats-number">₹${totalRevenue.toLocaleString()}</div>
+                </div>
+            </div>
+            
+            <div class="summary-section">
+                <h4>🛍️ Filtered Products</h4>
+                <div class="product-list">
+                    ${filteredProducts.map((p, i) => `
+                        <div class="product-item">
+                            <span class="product-number">${i + 1}</span>
+                            <span class="product-name"><strong>${p.name}</strong></span>
+                            <span class="product-category">${p.category}</span>
+                            <span class="product-price">₹${p.price.toLocaleString()}</span>
+                            <span class="product-stock">Stock: ${p.stock}</span>
+                            <span class="product-profit">Profit: ${(p.profit_margin || 0).toFixed(1)}%</span>
+                            <span class="product-sales">Sold: ${(p.units_sold || 0).toLocaleString()}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            
+            <div class="summary-section">
+                <h4>💡 Smart Recommendations</h4>
+                <div class="insights-grid">
+                    ${this.generateFilterRecommendations(filteredProducts)}
+                </div>
+            </div>
+            
+            <div class="summary-footer">
+                <p>Need more specific filters? Try: "Show me Electronics under ₹5000" or "High profit products" 📊</p>
+            </div>
+        </div>`;
+    }
+
+    // Generate recommendations for filtered products
+    generateFilterRecommendations(products) {
+        const recommendations = [];
+        
+        const lowStockProducts = products.filter(p => p.stock < 10);
+        const highProfitProducts = products.filter(p => (p.profit_margin || 0) > 30);
+        const lowProfitProducts = products.filter(p => (p.profit_margin || 0) < 15);
+        
+        if (lowStockProducts.length > 0) {
+            recommendations.push(`
+                <div class="insight-item">
+                    <span class="insight-label">🚨 Restocking Needed</span>
+                    <span class="insight-value">${lowStockProducts.length} products need restocking</span>
+                </div>
+            `);
+        }
+        
+        if (highProfitProducts.length > 0) {
+            recommendations.push(`
+                <div class="insight-item">
+                    <span class="insight-label">💎 High Profit Potential</span>
+                    <span class="insight-value">${highProfitProducts.length} products with >30% margin</span>
+                </div>
+            `);
+        }
+        
+        if (lowProfitProducts.length > 0) {
+            recommendations.push(`
+                <div class="insight-item">
+                    <span class="insight-label">📉 Price Optimization</span>
+                    <span class="insight-value">${lowProfitProducts.length} products may need price adjustments</span>
+                </div>
+            `);
+        }
+        
+        return recommendations.length > 0 ? recommendations.join('') : `
+            <div class="insight-item">
+                <span class="insight-label">✅ Good Performance</span>
+                <span class="insight-value">All filtered products are performing well</span>
+            </div>
+        `;
+    }
+
+    // Generate sales prediction based on historical data
+    generateSalesPrediction(productName = null) {
+        const { products, orders } = this.sellerData;
+        
+        if (productName) {
+            // Single product prediction
+            const product = products.find(p => 
+                p.name.toLowerCase().includes(productName.toLowerCase()) ||
+                productName.toLowerCase().includes(p.name.toLowerCase())
+            );
+            
+            if (!product) {
+                return `<div class="ai-summary-container">
+                    <div class="summary-header">
+                        <h3>🔍 Product Not Found</h3>
+                    </div>
+                    <div class="summary-section">
+                        <p>I couldn't find a product matching "${productName}".</p>
+                    </div>
+                </div>`;
+            }
+            
+            return this.generateSingleProductPrediction(product);
+        } else {
+            // Overall business prediction
+            return this.generateBusinessPrediction();
+        }
+    }
+
+    // Generate prediction for single product
+    generateSingleProductPrediction(product) {
+        const stock = product.stock;
+        const unitsSold = product.units_sold || 0;
+        const profitMargin = product.profit_margin || 0;
+        
+        // Simple prediction algorithm
+        let demandPrediction = 'Stable';
+        let stockPrediction = 'Sufficient';
+        let recommendation = 'Maintain current strategy';
+        let riskLevel = 'Low';
+        
+        if (unitsSold > 20 && stock < 20) {
+            demandPrediction = 'High Demand';
+            stockPrediction = 'Low Stock Risk';
+            recommendation = 'Consider restocking soon to meet demand';
+            riskLevel = 'Medium';
+        } else if (unitsSold < 5 && stock > 50) {
+            demandPrediction = 'Low Demand';
+            stockPrediction = 'Overstocked';
+            recommendation = 'Consider promotions or price adjustments';
+            riskLevel = 'Medium';
+        } else if (profitMargin > 40) {
+            demandPrediction = 'High Profit Potential';
+            stockPrediction = 'Optimize for Sales';
+            recommendation = 'Great margin, focus on increasing sales volume';
+            riskLevel = 'Low';
+        } else if (stock < 5) {
+            demandPrediction = 'Stock Out Risk';
+            stockPrediction = 'Critical';
+            recommendation = 'Restock immediately to avoid stock out';
+            riskLevel = 'High';
+        }
+        
+        const estimatedRevenue = stock * product.price;
+        const potentialProfit = stock * (product.price - (product.purchase_price || product.price * 0.7));
+        
+        return `<div class="ai-summary-container">
+            <div class="summary-header">
+                <h3>🔮 Sales Prediction: ${product.name}</h3>
+            </div>
+            
+            <div class="summary-grid">
+                <div class="summary-card">
+                    <h4>📊 Demand Prediction</h4>
+                    <div class="stats-number ${demandPrediction.includes('High') ? 'text-success' : demandPrediction.includes('Low') ? 'text-warning' : 'text-info'}">${demandPrediction}</div>
+                </div>
+                <div class="summary-card">
+                    <h4>📦 Stock Status</h4>
+                    <div class="stats-number ${stockPrediction.includes('Critical') ? 'text-danger' : stockPrediction.includes('Low') ? 'text-warning' : 'text-success'}">${stockPrediction}</div>
+                </div>
+                <div class="summary-card">
+                    <h4>⚠️ Risk Level</h4>
+                    <div class="stats-number ${riskLevel === 'High' ? 'text-danger' : riskLevel === 'Medium' ? 'text-warning' : 'text-success'}">${riskLevel}</div>
+                </div>
+                <div class="summary-card">
+                    <h4>💰 Potential Revenue</h4>
+                    <div class="stats-number">₹${estimatedRevenue.toLocaleString()}</div>
+                </div>
+            </div>
+            
+            <div class="summary-section">
+                <h4>📈 Prediction Details</h4>
+                <div class="insights-grid">
+                    <div class="insight-item">
+                        <span class="insight-label">Current Stock</span>
+                        <span class="insight-value">${stock} units</span>
+                    </div>
+                    <div class="insight-item">
+                        <span class="insight-label">Units Sold</span>
+                        <span class="insight-value">${unitsSold} units</span>
+                    </div>
+                    <div class="insight-item">
+                        <span class="insight-label">Profit Margin</span>
+                        <span class="insight-value">${profitMargin.toFixed(1)}%</span>
+                    </div>
+                    <div class="insight-item">
+                        <span class="insight-label">Potential Profit</span>
+                        <span class="insight-value">₹${potentialProfit.toLocaleString()}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="summary-section">
+                <h4>💡 Recommendation</h4>
+                <div class="alert alert-info">
+                    <strong>🎯 Action Required:</strong> ${recommendation}
+                </div>
+            </div>
+            
+            <div class="summary-footer">
+                <p>This prediction is based on current stock levels, sales history, and profit margins! 📊</p>
+            </div>
+        </div>`;
+    }
+
+    // Generate overall business prediction
+    generateBusinessPrediction() {
+        const { products, orders } = this.sellerData;
+        
+        const totalProducts = products.length;
+        const lowStockProducts = products.filter(p => p.stock < 10).length;
+        const highProfitProducts = products.filter(p => (p.profit_margin || 0) > 30).length;
+        const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
+        const avgOrderValue = orders.length > 0 ? totalRevenue / orders.length : 0;
+        
+        // Business health score
+        let healthScore = 100;
+        if (lowStockProducts > totalProducts * 0.2) healthScore -= 20;
+        if (highProfitProducts < totalProducts * 0.3) healthScore -= 15;
+        if (avgOrderValue < 1000) healthScore -= 10;
+        
+        const healthStatus = healthScore >= 80 ? 'Excellent' : healthScore >= 60 ? 'Good' : healthScore >= 40 ? 'Fair' : 'Poor';
+        
+        return `<div class="ai-summary-container">
+            <div class="summary-header">
+                <h3>🔮 Business Performance Prediction</h3>
+            </div>
+            
+            <div class="summary-grid">
+                <div class="summary-card">
+                    <h4>🏥 Business Health</h4>
+                    <div class="stats-number ${healthScore >= 80 ? 'text-success' : healthScore >= 60 ? 'text-info' : healthScore >= 40 ? 'text-warning' : 'text-danger'}">${healthScore}/100</div>
+                </div>
+                <div class="summary-card">
+                    <h4>📊 Health Status</h4>
+                    <div class="stats-number">${healthStatus}</div>
+                </div>
+                <div class="summary-card">
+                    <h4>⚠️ Risk Factors</h4>
+                    <div class="stats-number">${lowStockProducts}</div>
+                </div>
+                <div class="summary-card">
+                    <h4>💎 Opportunities</h4>
+                    <div class="stats-number">${highProfitProducts}</div>
+                </div>
+            </div>
+            
+            <div class="summary-section">
+                <h4>📈 30-Day Forecast</h4>
+                <div class="insights-grid">
+                    <div class="insight-item">
+                        <span class="insight-label">Expected Revenue</span>
+                        <span class="insight-value">₹${(totalRevenue * 1.1).toLocaleString()}</span>
+                    </div>
+                    <div class="insight-item">
+                        <span class="insight-label">Expected Orders</span>
+                        <span class="insight-value">${Math.round(orders.length * 1.15)}</span>
+                    </div>
+                    <div class="insight-item">
+                        <span class="insight-label">Stock Out Risk</span>
+                        <span class="insight-value">${lowStockProducts} products</span>
+                    </div>
+                    <div class="insight-item">
+                        <span class="insight-label">Growth Potential</span>
+                        <span class="insight-value">${highProfitProducts > 0 ? 'High' : 'Medium'}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="summary-section">
+                <h4>💡 Strategic Recommendations</h4>
+                <div class="insights-grid">
+                    ${this.generateBusinessRecommendations(products, orders)}
+                </div>
+            </div>
+            
+            <div class="summary-footer">
+                <p>Focus on high-profit products and maintain optimal stock levels for maximum growth! 🚀</p>
+            </div>
+        </div>`;
+    }
+
+    // Generate business recommendations
+    generateBusinessRecommendations(products, orders) {
+        const recommendations = [];
+        
+        const lowStockProducts = products.filter(p => p.stock < 10);
+        const highProfitProducts = products.filter(p => (p.profit_margin || 0) > 30);
+        const lowProfitProducts = products.filter(p => (p.profit_margin || 0) < 15);
+        
+        if (lowStockProducts.length > 0) {
+            recommendations.push(`
+                <div class="insight-item">
+                    <span class="insight-label">🚨 Immediate Action</span>
+                    <span class="insight-value">Restock ${lowStockProducts.length} low-stock items</span>
+                </div>
+            `);
+        }
+        
+        if (highProfitProducts.length > 0) {
+            recommendations.push(`
+                <div class="insight-item">
+                    <span class="insight-label">💎 Growth Opportunity</span>
+                    <span class="insight-value">Promote ${highProfitProducts.length} high-margin products</span>
+                </div>
+            `);
+        }
+        
+        if (lowProfitProducts.length > 0) {
+            recommendations.push(`
+                <div class="insight-item">
+                    <span class="insight-label">📉 Optimization</span>
+                    <span class="insight-value">Review pricing for ${lowProfitProducts.length} low-margin items</span>
+                </div>
+            `);
+        }
+        
+        return recommendations.length > 0 ? recommendations.join('') : `
+            <div class="insight-item">
+                <span class="insight-label">✅ Optimal Performance</span>
+                <span class="insight-value">Business is performing well, maintain current strategy</span>
+            </div>
+        `;
+    }
+
+    // Generate combined filter response for multiple criteria
+    generateCombinedFilterResponse(filterTypes, filterValues) {
+        const { products } = this.sellerData;
+        let filteredProducts = products;
+        let filterDescription = '';
+
+        // Apply multiple filters
+        for (let i = 0; i < filterTypes.length; i++) {
+            const filterType = filterTypes[i];
+            const filterValue = filterValues[i];
+
+            switch (filterType) {
+                case 'category':
+                    filteredProducts = filteredProducts.filter(p => p.category.toLowerCase() === filterValue.toLowerCase());
+                    filterDescription += `${filterValue} category, `;
+                    break;
+                case 'profit_margin':
+                    switch (filterValue) {
+                        case 'high':
+                            filteredProducts = filteredProducts.filter(p => (p.profit_margin || 0) > 30);
+                            filterDescription += 'high profit margin, ';
+                            break;
+                        case 'medium':
+                            filteredProducts = filteredProducts.filter(p => (p.profit_margin || 0) >= 15 && (p.profit_margin || 0) <= 30);
+                            filterDescription += 'medium profit margin, ';
+                            break;
+                        case 'low':
+                            filteredProducts = filteredProducts.filter(p => (p.profit_margin || 0) < 15);
+                            filterDescription += 'low profit margin, ';
+                            break;
+                    }
+                    break;
+                case 'stock_level':
+                    switch (filterValue) {
+                        case 'low':
+                            filteredProducts = filteredProducts.filter(p => p.stock < 10);
+                            filterDescription += 'low stock, ';
+                            break;
+                        case 'medium':
+                            filteredProducts = filteredProducts.filter(p => p.stock >= 10 && p.stock <= 50);
+                            filterDescription += 'medium stock, ';
+                            break;
+                        case 'high':
+                            filteredProducts = filteredProducts.filter(p => p.stock > 50);
+                            filterDescription += 'high stock, ';
+                            break;
+                    }
+                    break;
+            }
+        }
+
+        // Remove trailing comma and space
+        filterDescription = filterDescription.slice(0, -2);
+
+        if (filteredProducts.length === 0) {
+            return `<div class="ai-summary-container">
+                <div class="summary-header">
+                    <h3>🔍 No Products Found</h3>
+                </div>
+                <div class="summary-section">
+                    <p>No products match your combined filter: <strong>${filterDescription}</strong></p>
+                    <p>Try adjusting your filter criteria or use simpler filters.</p>
+                </div>
+            </div>`;
+        }
+
+        return this.generateProductFilterResponse('combined', filterDescription, filteredProducts);
+    }
+
+    // Generate comprehensive profit analysis
+    generateProfitAnalysis() {
+        const { products } = this.sellerData;
+        
+        if (!products || products.length === 0) {
+            return `<div class="ai-summary-container">
+                <div class="summary-header">
+                    <h3>📊 Profit Analysis</h3>
+                </div>
+                <div class="summary-section">
+                    <p>No products available for profit analysis.</p>
+                </div>
+            </div>`;
+        }
+
+        // Calculate profit metrics
+        const totalRevenue = products.reduce((sum, p) => sum + (p.price * (p.units_sold || 0)), 0);
+        const totalCost = products.reduce((sum, p) => sum + ((p.purchase_price || 0) * (p.units_sold || 0)), 0);
+        const totalProfit = totalRevenue - totalCost;
+        const avgProfitMargin = products.reduce((sum, p) => sum + (p.profit_margin || 0), 0) / products.length;
+        
+        const highProfitProducts = products.filter(p => (p.profit_margin || 0) > 30);
+        const mediumProfitProducts = products.filter(p => (p.profit_margin || 0) >= 15 && (p.profit_margin || 0) <= 30);
+        const lowProfitProducts = products.filter(p => (p.profit_margin || 0) < 15);
+
+        const topPerformingProduct = products.reduce((top, p) => 
+            (p.profit_margin || 0) > (top.profit_margin || 0) ? p : top, products[0]);
+
+        return `<div class="ai-summary-container">
+            <div class="summary-header">
+                <h3>💰 Comprehensive Profit Analysis</h3>
+            </div>
+            
+            <div class="summary-grid">
+                <div class="summary-card">
+                    <h4>💵 Total Revenue</h4>
+                    <div class="stats-number">₹${totalRevenue.toLocaleString()}</div>
+                </div>
+                <div class="summary-card">
+                    <h4>💸 Total Cost</h4>
+                    <div class="stats-number">₹${totalCost.toLocaleString()}</div>
+                </div>
+                <div class="summary-card">
+                    <h4>💎 Total Profit</h4>
+                    <div class="stats-number ${totalProfit >= 0 ? 'text-success' : 'text-danger'}">₹${totalProfit.toLocaleString()}</div>
+                </div>
+                <div class="summary-card">
+                    <h4>📈 Avg Profit Margin</h4>
+                    <div class="stats-number">${avgProfitMargin.toFixed(1)}%</div>
+                </div>
+            </div>
+            
+            <div class="summary-section">
+                <h4>📊 Profit Distribution</h4>
+                <div class="profit-distribution">
+                    <div class="profit-category">
+                        <span class="profit-label high">High Profit (>30%)</span>
+                        <span class="profit-count">${highProfitProducts.length} products</span>
+                        <span class="profit-percentage">${((highProfitProducts.length / products.length) * 100).toFixed(1)}%</span>
+                    </div>
+                    <div class="profit-category">
+                        <span class="profit-label medium">Medium Profit (15-30%)</span>
+                        <span class="profit-count">${mediumProfitProducts.length} products</span>
+                        <span class="profit-percentage">${((mediumProfitProducts.length / products.length) * 100).toFixed(1)}%</span>
+                    </div>
+                    <div class="profit-category">
+                        <span class="profit-label low">Low Profit (<15%)</span>
+                        <span class="profit-count">${lowProfitProducts.length} products</span>
+                        <span class="profit-percentage">${((lowProfitProducts.length / products.length) * 100).toFixed(1)}%</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="summary-section">
+                <h4>🏆 Top Performing Product</h4>
+                <div class="top-product">
+                    <strong>${topPerformingProduct.name}</strong> - ${(topPerformingProduct.profit_margin || 0).toFixed(1)}% profit margin
+                    <br><small>Revenue: ₹${(topPerformingProduct.price * (topPerformingProduct.units_sold || 0)).toLocaleString()}</small>
+                </div>
+            </div>
+            
+            <div class="summary-section">
+                <h4>💡 Recommendations</h4>
+                <ul>
+                    ${lowProfitProducts.length > 0 ? `<li>⚠️ ${lowProfitProducts.length} products have low profit margins - consider price optimization</li>` : ''}
+                    ${highProfitProducts.length > 0 ? `<li>💎 ${highProfitProducts.length} high-profit products - consider expanding these categories</li>` : ''}
+                    <li>📈 Focus on products with profit margins above 20% for better profitability</li>
+                    <li>🔄 Regularly review and adjust pricing based on market trends</li>
+                </ul>
+            </div>
+            
+            <div class="summary-footer">
+                <p>Try: "Show me high profit products" or "Low profit margin analysis" for more specific insights 📊</p>
+            </div>
+        </div>`;
+    }
+
+    // Generate business performance report
+    generatePerformanceReport() {
+        const { products, orders } = this.sellerData;
+        
+        if (!products || products.length === 0) {
+            return `<div class="ai-summary-container">
+                <div class="summary-header">
+                    <h3>📈 Business Performance Report</h3>
+                </div>
+                <div class="summary-section">
+                    <p>No data available for performance analysis.</p>
+                </div>
+            </div>`;
+        }
+
+        // Calculate performance metrics
+        const totalProducts = products.length;
+        const totalStock = products.reduce((sum, p) => sum + p.stock, 0);
+        const totalValue = products.reduce((sum, p) => sum + (p.price * p.stock), 0);
+        const avgPrice = products.reduce((sum, p) => sum + p.price, 0) / totalProducts;
+        const lowStockProducts = products.filter(p => p.stock < 10);
+        const outOfStockProducts = products.filter(p => p.stock === 0);
+        const highValueProducts = products.filter(p => p.price > avgPrice * 1.5);
+
+        // Calculate business health score
+        const stockHealth = ((totalProducts - lowStockProducts.length) / totalProducts) * 100;
+        const profitHealth = products.filter(p => (p.profit_margin || 0) > 15).length / totalProducts * 100;
+        const businessHealthScore = (stockHealth + profitHealth) / 2;
+
+        return `<div class="ai-summary-container">
+            <div class="summary-header">
+                <h3>📈 Business Performance Report</h3>
+            </div>
+            
+            <div class="summary-grid">
+                <div class="summary-card">
+                    <h4>📦 Total Products</h4>
+                    <div class="stats-number">${totalProducts}</div>
+                </div>
+                <div class="summary-card">
+                    <h4>💰 Total Inventory Value</h4>
+                    <div class="stats-number">₹${totalValue.toLocaleString()}</div>
+                </div>
+                <div class="summary-card">
+                    <h4>📊 Average Price</h4>
+                    <div class="stats-number">₹${avgPrice.toLocaleString()}</div>
+                </div>
+                <div class="summary-card">
+                    <h4>🏥 Business Health</h4>
+                    <div class="stats-number ${businessHealthScore >= 80 ? 'text-success' : businessHealthScore >= 60 ? 'text-warning' : 'text-danger'}">${businessHealthScore.toFixed(0)}%</div>
+                </div>
+            </div>
+            
+            <div class="summary-section">
+                <h4>⚠️ Stock Alerts</h4>
+                <div class="alert-summary">
+                    ${lowStockProducts.length > 0 ? `<div class="alert-item warning">${lowStockProducts.length} products with low stock (< 10 units)</div>` : ''}
+                    ${outOfStockProducts.length > 0 ? `<div class="alert-item danger">${outOfStockProducts.length} products out of stock</div>` : ''}
+                    ${lowStockProducts.length === 0 && outOfStockProducts.length === 0 ? '<div class="alert-item success">All products have adequate stock levels</div>' : ''}
+                </div>
+            </div>
+            
+            <div class="summary-section">
+                <h4>💎 High-Value Products</h4>
+                <div class="high-value-products">
+                    ${highValueProducts.length > 0 ? 
+                        highValueProducts.slice(0, 5).map(p => `
+                            <div class="product-item">
+                                <span class="product-name"><strong>${p.name}</strong></span>
+                                <span class="product-price">₹${p.price.toLocaleString()}</span>
+                                <span class="product-profit">${(p.profit_margin || 0).toFixed(1)}% profit</span>
+                            </div>
+                        `).join('') : 
+                        '<p>No high-value products found</p>'
+                    }
+                </div>
+            </div>
+            
+            <div class="summary-section">
+                <h4>📊 Performance Insights</h4>
+                <ul>
+                    <li>${stockHealth.toFixed(1)}% of products have healthy stock levels</li>
+                    <li>${profitHealth.toFixed(1)}% of products have good profit margins (>15%)</li>
+                    <li>Average inventory value per product: ₹${(totalValue / totalProducts).toLocaleString()}</li>
+                    <li>Total stock units: ${totalStock.toLocaleString()}</li>
+                </ul>
+            </div>
+            
+            <div class="summary-footer">
+                <p>Try: "Show me low stock products" or "High value product analysis" for detailed insights 📊</p>
+            </div>
+        </div>`;
+    }
+
+    // Generate quick actions menu
+    generateQuickActions() {
+        return `<div class="ai-summary-container">
+            <div class="summary-header">
+                <h3>⚡ Quick Actions</h3>
+            </div>
+            
+            <div class="summary-section">
+                <h4>🚀 Popular Commands</h4>
+                <div class="quick-actions-grid">
+                    <div class="action-item" onclick="sendQuickMessage('Show me all products')">
+                        <i class="fas fa-box"></i>
+                        <span>View All Products</span>
+                    </div>
+                    <div class="action-item" onclick="sendQuickMessage('Show me low stock products')">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>Stock Alerts</span>
+                    </div>
+                    <div class="action-item" onclick="sendQuickMessage('Show me high profit products')">
+                        <i class="fas fa-chart-line"></i>
+                        <span>High Profit Items</span>
+                    </div>
+                    <div class="action-item" onclick="sendQuickMessage('Business summary')">
+                        <i class="fas fa-chart-bar"></i>
+                        <span>Business Overview</span>
+                    </div>
+                    <div class="action-item" onclick="sendQuickMessage('Show me Electronics')">
+                        <i class="fas fa-mobile-alt"></i>
+                        <span>Electronics</span>
+                    </div>
+                    <div class="action-item" onclick="sendQuickMessage('Show me Fashion')">
+                        <i class="fas fa-tshirt"></i>
+                        <span>Fashion</span>
+                    </div>
+                    <div class="action-item" onclick="sendQuickMessage('Profit analysis')">
+                        <i class="fas fa-coins"></i>
+                        <span>Profit Report</span>
+                    </div>
+                    <div class="action-item" onclick="sendQuickMessage('Performance report')">
+                        <i class="fas fa-tachometer-alt"></i>
+                        <span>Performance</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="summary-section">
+                <h4>🔍 Advanced Filters</h4>
+                <div class="filter-examples">
+                    <p><strong>Try these advanced filters:</strong></p>
+                    <ul>
+                        <li>"Show me products under ₹5000"</li>
+                        <li>"Show me profitable Electronics"</li>
+                        <li>"Show me best selling products"</li>
+                        <li>"Show me products between ₹1000 and ₹5000"</li>
+                        <li>"Show me low stock Fashion items"</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="summary-footer">
+                <p>Click any action above or type your own query! 🚀</p>
+            </div>
+        </div>`;
+    }
+
+    // Enhanced help message with advanced features
+    generateHelpMessage() {
+        return `<div class="ai-summary-container">
+            <div class="summary-header">
+                <h3>🤖 Advanced AI Assistant Help</h3>
+            </div>
+            
+            <div class="summary-section">
+                <h4>📦 Product Management</h4>
+                <ul>
+                    <li><strong>View Products:</strong> "Show me all products", "Product list"</li>
+                    <li><strong>Add Product:</strong> "Add new product", "Create product"</li>
+                    <li><strong>Update Product:</strong> "Edit product", "Change price"</li>
+                    <li><strong>Product History:</strong> "Show me [product name] history"</li>
+                </ul>
+            </div>
+            
+            <div class="summary-section">
+                <h4>🔍 Advanced Filtering</h4>
+                <ul>
+                    <li><strong>By Category:</strong> "Show me Electronics", "Fashion products"</li>
+                    <li><strong>By Price:</strong> "Under ₹5000", "Above ₹1000", "Between ₹1000 and ₹5000"</li>
+                    <li><strong>By Stock:</strong> "Low stock products", "High stock items"</li>
+                    <li><strong>By Profit:</strong> "High profit products", "Low margin items"</li>
+                    <li><strong>By Sales:</strong> "Best selling products", "Popular items"</li>
+                    <li><strong>Combined:</strong> "Profitable Electronics", "Low stock Fashion"</li>
+                </ul>
+            </div>
+            
+            <div class="summary-section">
+                <h4>📊 Business Analytics</h4>
+                <ul>
+                    <li><strong>Business Summary:</strong> "Business overview", "Dashboard"</li>
+                    <li><strong>Profit Analysis:</strong> "Profit report", "Margin analysis"</li>
+                    <li><strong>Performance Report:</strong> "Business performance", "Performance analysis"</li>
+                    <li><strong>Sales Report:</strong> "Sales analytics", "Revenue report"</li>
+                    <li><strong>Stock Alerts:</strong> "Low stock alerts", "Inventory check"</li>
+                </ul>
+            </div>
+            
+            <div class="summary-section">
+                <h4>📋 Order Management</h4>
+                <ul>
+                    <li><strong>View Orders:</strong> "Show orders", "Order list"</li>
+                    <li><strong>Update Orders:</strong> "Change order status", "Update order"</li>
+                    <li><strong>Order History:</strong> "Selling history", "Order analytics"</li>
+                </ul>
+            </div>
+            
+            <div class="summary-section">
+                <h4>🚀 Quick Actions</h4>
+                <ul>
+                    <li><strong>Quick Help:</strong> "Quick actions", "Quick help"</li>
+                    <li><strong>Predictions:</strong> "Sales prediction", "Business forecast"</li>
+                    <li><strong>Recommendations:</strong> "Smart recommendations", "Business tips"</li>
+                </ul>
+            </div>
+            
+            <div class="summary-footer">
+                <p><strong>💡 Pro Tips:</strong></p>
+                <ul>
+                    <li>Use natural language - "Show me expensive Electronics"</li>
+                    <li>Combine filters - "Low stock high profit products"</li>
+                    <li>Ask for specific insights - "Which products need price optimization?"</li>
+                    <li>Get predictions - "Predict sales for next month"</li>
+                </ul>
+                <p>Need more help? Just ask! 🚀</p>
             </div>
         </div>`;
     }

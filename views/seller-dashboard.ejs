@@ -8,7 +8,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         .dashboard-header {
-            background: linear-gradient(135deg, #2874f0, #1a5bb8);
+            background: linear-gradient(135deg, #fefa03, #0015ff);
             color: white;
             padding: 20px 0;
             margin-bottom: 30px;
@@ -84,6 +84,26 @@
             font-size: 0.8rem;
             font-weight: 500;
         }
+        
+        .profit-margin {
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+        
+        .profit-margin.high { color: #28a745; }
+        .profit-margin.medium { color: #ffc107; }
+        .profit-margin.low { color: #dc3545; }
+        
+        .stock-badge {
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        
+        .stock-badge.low-stock { background: #f8d7da; color: #721c24; }
+        .stock-badge.normal-stock { background: #d1ecf1; color: #0c5460; }
+        .stock-badge.high-stock { background: #d4edda; color: #155724; }
         
         .status-processing { background: #f8d7da; color: #721c24; }
         .status-shipped { background: #d1ecf1; color: #0c5460; }
@@ -317,264 +337,323 @@
         
         /* AI Summary Styles */
         .ai-summary-container {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            background: white;
             border-radius: 15px;
             padding: 20px;
-            margin: 10px 0;
-            border: 1px solid #dee2e6;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 15px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            border-left: 4px solid #2874f0;
         }
         
         .summary-header h3 {
             color: #2874f0;
-            margin-bottom: 20px;
-            text-align: center;
-            font-size: 1.3rem;
+            margin-bottom: 15px;
             font-weight: 600;
         }
         
         .summary-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: 15px;
             margin-bottom: 20px;
         }
         
         .summary-card {
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
             text-align: center;
-            transition: transform 0.3s ease;
-        }
-        
-        .summary-card:hover {
-            transform: translateY(-2px);
+            border: 1px solid #e9ecef;
         }
         
         .summary-card h4 {
-            color: #495057;
-            margin-bottom: 15px;
-            font-size: 1rem;
-            font-weight: 600;
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 8px;
+            font-weight: 500;
         }
         
-        .stats-number {
-            font-size: 1.8rem;
+        .summary-card .stats-number {
+            font-size: 1.5rem;
             font-weight: bold;
             color: #2874f0;
-            margin-bottom: 5px;
-        }
-        
-        .sales-list {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        
-        .sales-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 15px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            border-left: 4px solid #2874f0;
-        }
-        
-        .sales-date {
-            color: #495057;
-            font-weight: 500;
-            min-width: 100px;
-        }
-        
-        .sales-orders {
-            color: #6c757d;
-            font-size: 0.9rem;
-        }
-        
-        .sales-amount {
-            color: #28a745;
-            font-weight: 600;
-            font-size: 1.1rem;
-        }
-        
-        .alert-section {
-            border-left: 4px solid #ffc107;
-        }
-        
-        .alert-section h4 {
-            color: #856404;
-        }
-        
-        .warning {
-            color: #ffc107;
-            font-weight: 600;
-        }
-        
-        .danger {
-            color: #dc3545;
-            font-weight: 600;
         }
         
         .summary-section {
-            background: white;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 15px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
         }
         
         .summary-section h4 {
-            color: #495057;
-            margin-bottom: 15px;
-            font-size: 1rem;
+            color: #333;
+            margin-bottom: 12px;
             font-weight: 600;
         }
         
-        .product-list, .order-list, .alert-list {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
+        .product-list {
+            max-height: 300px;
+            overflow-y: auto;
         }
         
-        .product-item, .order-item, .alert-item {
+        .product-item {
             display: flex;
             align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #f0f0f0;
             gap: 10px;
-            padding: 8px 12px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            font-size: 0.85rem;
+        }
+        
+        .product-item:last-child {
+            border-bottom: none;
         }
         
         .product-number {
             background: #2874f0;
             color: white;
-            width: 20px;
-            height: 20px;
+            width: 25px;
+            height: 25px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.7rem;
+            font-size: 0.8rem;
             font-weight: bold;
         }
         
         .product-name {
-            flex: 1;
+            flex: 2;
             font-weight: 500;
-        }
-        
-        .product-price {
-            color: #28a745;
-            font-weight: 600;
-        }
-        
-        .product-stock {
-            color: #6c757d;
-            font-size: 0.8rem;
         }
         
         .product-category {
-            color: #6c757d;
-            font-size: 0.8rem;
-            background: #e9ecef;
-            padding: 2px 6px;
-            border-radius: 4px;
+            flex: 1;
+            color: #666;
+            font-size: 0.9rem;
         }
         
-        .low-stock {
-            color: #dc3545;
+        .product-price {
+            flex: 1;
             font-weight: 600;
-        }
-        
-        .order-number {
-            background: #28a745;
-            color: white;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.7rem;
-            font-weight: bold;
-        }
-        
-        .order-id {
             color: #2874f0;
+        }
+        
+        .product-stock {
+            flex: 1;
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .product-profit {
+            flex: 1;
             font-weight: 600;
         }
         
-        .order-customer {
+        .product-sales {
             flex: 1;
-        }
-        
-        .order-amount {
-            color: #28a745;
-            font-weight: 600;
-        }
-        
-        .order-status {
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            font-weight: 500;
-            text-transform: capitalize;
-        }
-        
-        .alert-item {
-            background: #fff3cd;
-            border-left: 4px solid #ffc107;
-        }
-        
-        .alert-icon {
-            font-size: 1.1rem;
-        }
-        
-        .alert-text {
-            flex: 1;
-            color: #856404;
+            color: #666;
+            font-size: 0.9rem;
         }
         
         .insights-grid {
             display: grid;
-            grid-template-columns: 1fr;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 10px;
         }
         
         .insight-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 12px;
-            background: #e3f2fd;
+            background: #f8f9fa;
+            padding: 12px;
             border-radius: 8px;
+            border-left: 3px solid #2874f0;
         }
         
         .insight-label {
-            color: #1976d2;
-            font-weight: 500;
+            display: block;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
         }
         
         .insight-value {
-            color: #1565c0;
-            font-weight: 600;
+            color: #666;
+            font-size: 0.9rem;
         }
         
         .summary-footer {
-            text-align: center;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
             margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid #dee2e6;
+            text-align: center;
+            color: #666;
         }
         
-        .summary-footer p {
-            color: #6c757d;
-            margin: 0;
-            font-style: italic;
+        /* Quick Actions Styles */
+        .quick-actions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .action-item {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .action-item:hover {
+            background: #2874f0;
+            color: white;
+            border-color: #2874f0;
+            transform: translateY(-2px);
+        }
+        
+        .action-item i {
+            font-size: 1.5rem;
+            margin-bottom: 8px;
+            display: block;
+        }
+        
+        .action-item span {
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        /* Profit Distribution Styles */
+        .profit-distribution {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .profit-category {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .profit-label {
+            font-weight: 600;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.9rem;
+        }
+        
+        .profit-label.high {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .profit-label.medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .profit-label.low {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .profit-count {
+            font-weight: 600;
+            color: #2874f0;
+        }
+        
+        .profit-percentage {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        /* Alert Styles */
+        .alert-summary {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .alert-item {
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 500;
+        }
+        
+        .alert-item.warning {
+            background: #fff3cd;
+            color: #856404;
+            border-left: 4px solid #ffc107;
+        }
+        
+        .alert-item.danger {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+        
+        .alert-item.success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+        
+        /* High Value Products */
+        .high-value-products {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .top-product {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 4px solid #28a745;
+        }
+        
+        /* Filter Examples */
+        .filter-examples ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .filter-examples li {
+            background: #f8f9fa;
+            padding: 8px 12px;
+            margin-bottom: 5px;
+            border-radius: 5px;
+            border-left: 3px solid #2874f0;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .summary-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .quick-actions-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .profit-distribution {
+                grid-template-columns: 1fr;
+            }
+            
+            .product-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+            }
+            
+            .product-item > span {
+                flex: none;
+            }
         }
     </style>
 </head>
@@ -585,25 +664,28 @@
             <div class="row align-items-center">
                 <div class="col-md-8">
                     <h2><i class="fas fa-shopping-cart"></i> Flipkart Seller Dashboard</h2>
-                    <p class="mb-0">Welcome back, <%= sellerData.profile.ownerName %>!</p>
-                </div>
-                <div class="col-md-4 text-end">
-                    <div class="d-flex justify-content-end align-items-center">
-                        <a href="/seller-dashboard" class="btn btn-outline-light me-2">
-                            <i class="fas fa-tachometer-alt"></i> Dashboard
-                        </a>
-                        <a href="/profile" class="btn btn-outline-light me-2">
-                            <i class="fas fa-user"></i> Profile
-                        </a>
-                        <a href="/chat-logs" class="btn btn-outline-light me-2">
-                            <i class="fas fa-comments"></i> Chat Logs
-                        </a>
-                        <a href="/order-history-page" class="btn btn-outline-light me-2">
-                            <i class="fas fa-history"></i> Order History
-                        </a>
-                        <a href="/logout" class="logout-btn">
-                            <i class="fas fa-sign-out-alt"></i> Logout
-                        </a>
+                    <div class="d-flex align-items-center">
+                        <h4 class="mb-0">Welcome, <%= sellerData.profile.ownerName %></h4>
+                        <div class="ms-auto">
+                            <a href="/whatsapp-clone" class="btn btn-success me-2">
+                                <i class="fab fa-whatsapp"></i> WhatsApp Clone
+                            </a>
+                            <a href="/profile" class="btn btn-outline-primary me-2">
+                                <i class="fas fa-user"></i> Profile
+                            </a>
+                            <a href="/chat-logs" class="btn btn-outline-info me-2">
+                                <i class="fas fa-comments"></i> Chat Logs
+                            </a>
+                            <a href="/order-history-page" class="btn btn-outline-warning me-2">
+                                <i class="fas fa-history"></i> Order History
+                            </a>
+                            <a href="/product-history" class="btn btn-outline-secondary me-2">
+                                <i class="fas fa-chart-line"></i> Product History
+                            </a>
+                            <a href="/logout" class="btn btn-outline-danger">
+                                <i class="fas fa-sign-out-alt"></i> Logout
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -651,43 +733,125 @@
             </div>
         </div>
 
-        <!-- Products Section -->
+        <!-- Products Section with Advanced Filters -->
         <div class="row mb-4">
             <div class="col-12">
                 <h4 class="section-title">
-                    <i class="fas fa-box"></i> Products
+                    <i class="fas fa-box"></i> Products Inventory
                 </h4>
+                
+                <!-- Advanced Filter Panel -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="fas fa-filter"></i> Advanced Filters & Smart Suggestions
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <label class="form-label">Category</label>
+                                <select class="form-select" id="categoryFilter" onchange="applyAdvancedFilters()">
+                                    <option value="">All Categories</option>
+                                    <option value="Electronics">Electronics</option>
+                                    <option value="Accessories">Accessories</option>
+                                    <option value="Office Supplies">Office Supplies</option>
+                                    <option value="Home & Garden">Home & Garden</option>
+                                    <option value="Fashion">Fashion</option>
+                                    <option value="Automotive">Automotive</option>
+                                    <option value="Sports & Outdoors">Sports & Outdoors</option>
+                                    <option value="Books & Media">Books & Media</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Price Range</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="minPrice" placeholder="Min" onchange="applyAdvancedFilters()">
+                                    <span class="input-group-text">-</span>
+                                    <input type="number" class="form-control" id="maxPrice" placeholder="Max" onchange="applyAdvancedFilters()">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Stock Level</label>
+                                <select class="form-select" id="stockFilter" onchange="applyAdvancedFilters()">
+                                    <option value="">All Stock Levels</option>
+                                    <option value="low">Low Stock (< 10)</option>
+                                    <option value="medium">Medium Stock (10-50)</option>
+                                    <option value="high">High Stock (> 50)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Profit Margin</label>
+                                <select class="form-select" id="profitFilter" onchange="applyAdvancedFilters()">
+                                    <option value="">All Margins</option>
+                                    <option value="low">Low (< 15%)</option>
+                                    <option value="medium">Medium (15-30%)</option>
+                                    <option value="high">High (> 30%)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Smart Suggestions</label>
+                                <div id="smartSuggestions" class="alert alert-info">
+                                    <strong>💡 Smart Insights:</strong>
+                                    <ul class="mb-0 mt-2">
+                                        <li>Products with low stock may need restocking</li>
+                                        <li>High-profit items could be promoted</li>
+                                        <li>Low-performing products may need price adjustments</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Quick Actions</label>
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-warning btn-sm" onclick="showLowStockAlert()">
+                                        <i class="fas fa-exclamation-triangle"></i> Low Stock Alert
+                                    </button>
+                                    <button class="btn btn-success btn-sm" onclick="showHighProfitProducts()">
+                                        <i class="fas fa-chart-line"></i> High Profit Products
+                                    </button>
+                                    <button class="btn btn-info btn-sm" onclick="showPredictionAnalysis()">
+                                        <i class="fas fa-crystal-ball"></i> Sales Prediction
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="table-responsive">
                     <table class="table table-hover">
                         <thead>
                             <tr>
-                                <th>Product</th>
-                                <th>Category</th>
-                                <th>Price</th>
-                                <th>Stock</th>
-                                <th>Status</th>
+                                <th>Product Name<br><input type="text" class="form-control form-control-sm column-filter" placeholder="Filter" oninput="filterTable(0, this.value)"></th>
+                                <th>Category<br><input type="text" class="form-control form-control-sm column-filter" placeholder="Filter" oninput="filterTable(1, this.value)"></th>
+                                <th>Price<br><input type="text" class="form-control form-control-sm column-filter" placeholder="Filter" oninput="filterTable(2, this.value)"></th>
+                                <th>Purchase Price<br><input type="text" class="form-control form-control-sm column-filter" placeholder="Filter" oninput="filterTable(3, this.value)"></th>
+                                <th>Profit Margin<br><input type="text" class="form-control form-control-sm column-filter" placeholder="Filter" oninput="filterTable(4, this.value)"></th>
+                                <th>Stock<br><input type="text" class="form-control form-control-sm column-filter" placeholder="Filter" oninput="filterTable(5, this.value)"></th>
+                                <th>Units Sold<br><input type="text" class="form-control form-control-sm column-filter" placeholder="Filter" oninput="filterTable(6, this.value)"></th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             <% sellerData.products.forEach(product => { %>
                             <tr data-product-id="<%= product.id %>">
-                                <td>
-                                    <strong><%= product.name %></strong><br>
-                                    <small class="text-muted"><%= product.description %></small>
-                                </td>
+                                <td><strong><%= product.name %></strong></td>
                                 <td><%= product.category %></td>
                                 <td>₹<%= product.price.toLocaleString() %></td>
+                                <td>₹<%= (product.purchase_price || 0).toLocaleString() %></td>
                                 <td>
-                                    <span class="<%= product.stock < 10 ? 'text-danger' : 'text-success' %>">
-                                        <%= product.stock %> units
+                                    <span class="profit-margin <%= (product.profit_margin || 0) >= 30 ? 'high' : (product.profit_margin || 0) >= 15 ? 'medium' : 'low' %>">
+                                        <%= (product.profit_margin || 0).toFixed(1) %>%
                                     </span>
                                 </td>
                                 <td>
-                                    <span class="status-badge <%= product.status === 'active' ? 'status-delivered' : 'status-processing' %>">
-                                        <%= product.status %>
+                                    <span class="stock-badge <%= product.stock < 10 ? 'low-stock' : product.stock > 50 ? 'high-stock' : 'normal-stock' %>">
+                                        <%= product.stock %>
                                     </span>
                                 </td>
+                                <td><%= (product.units_sold || 0).toLocaleString() %></td>
                                 <td>
                                     <button class="btn btn-sm btn-flipkart" onclick="editProduct(<%= product.id %>)">
                                         <i class="fas fa-edit"></i> Edit
@@ -732,7 +896,7 @@
                                         <%= order.status %>
                                     </span>
                                 </td>
-                                <td><%= new Date(order.date).toLocaleDateString() %></td>
+                                <td><%= formatDate(order.order_date) %></td>
                                 <td>
                                     <button class="btn btn-sm btn-flipkart" onclick="updateOrderStatus('<%= order.id %>')">
                                         <i class="fas fa-edit"></i> Update Status
@@ -1018,14 +1182,13 @@
                 return;
             }
             
-            // Extract data from the table row
+            // Extract data from the table row based on actual structure
             const name = productRow.querySelector('td:nth-child(1) strong').textContent;
-            const description = productRow.querySelector('td:nth-child(1) small').textContent;
             const category = productRow.querySelector('td:nth-child(2)').textContent;
-            const price = productRow.querySelector('td:nth-child(3)').textContent.replace('₹', '').replace(',', '');
-            const stock = productRow.querySelector('td:nth-child(4) span').textContent.replace(' units', '');
+            const price = productRow.querySelector('td:nth-child(3)').textContent.replace('₹', '').replace(/,/g, '');
+            const stock = productRow.querySelector('td:nth-child(6) span').textContent;
+            let description = '';
             
-            // Populate the modal
             document.getElementById('editProductId').value = productId;
             document.getElementById('editProductName').value = name;
             document.getElementById('editProductPrice').value = price;
@@ -1033,7 +1196,6 @@
             document.getElementById('editProductCategory').value = category;
             document.getElementById('editProductDescription').value = description;
             
-            // Show the modal
             const modal = new bootstrap.Modal(document.getElementById('editProductModal'));
             modal.show();
         }
@@ -1244,6 +1406,252 @@
                 e.preventDefault();
                 handleProductFormSubmission(e.target);
             }
+        });
+
+        function filterTable(colIndex, filterValue) {
+            const table = document.querySelector('.table.table-hover');
+            const rows = table.querySelectorAll('tbody tr');
+            filterValue = filterValue.toLowerCase();
+            rows.forEach(row => {
+                const cell = row.children[colIndex];
+                if (!cell) return;
+                const text = cell.textContent.toLowerCase();
+                if (text.includes(filterValue)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        // Advanced filtering function
+        function applyAdvancedFilters() {
+            const categoryFilter = document.getElementById('categoryFilter').value;
+            const minPrice = document.getElementById('minPrice').value;
+            const maxPrice = document.getElementById('maxPrice').value;
+            const stockFilter = document.getElementById('stockFilter').value;
+            const profitFilter = document.getElementById('profitFilter').value;
+            
+            const rows = document.querySelectorAll('.table.table-hover tbody tr');
+            
+            rows.forEach(row => {
+                let show = true;
+                
+                // Category filter
+                if (categoryFilter && row.children[1].textContent.trim() !== categoryFilter) {
+                    show = false;
+                }
+                
+                // Price range filter
+                const price = parseFloat(row.children[2].textContent.replace('₹', '').replace(',', ''));
+                if (minPrice && price < parseFloat(minPrice)) show = false;
+                if (maxPrice && price > parseFloat(maxPrice)) show = false;
+                
+                // Stock level filter
+                const stock = parseInt(row.children[5].textContent);
+                if (stockFilter === 'low' && stock >= 10) show = false;
+                if (stockFilter === 'medium' && (stock < 10 || stock > 50)) show = false;
+                if (stockFilter === 'high' && stock <= 50) show = false;
+                
+                // Profit margin filter
+                const profitMargin = parseFloat(row.children[4].textContent.replace('%', ''));
+                if (profitFilter === 'low' && profitMargin >= 15) show = false;
+                if (profitFilter === 'medium' && (profitMargin < 15 || profitMargin > 30)) show = false;
+                if (profitFilter === 'high' && profitMargin <= 30) show = false;
+                
+                row.style.display = show ? '' : 'none';
+            });
+            
+            updateSmartSuggestions();
+        }
+
+        // Update smart suggestions based on current data
+        function updateSmartSuggestions() {
+            const visibleRows = Array.from(document.querySelectorAll('.table.table-hover tbody tr')).filter(row => row.style.display !== 'none');
+            const suggestions = [];
+            
+            // Analyze visible products
+            const lowStockProducts = visibleRows.filter(row => parseInt(row.children[5].textContent) < 10).length;
+            const highProfitProducts = visibleRows.filter(row => parseFloat(row.children[4].textContent.replace('%', '')) > 30).length;
+            const lowProfitProducts = visibleRows.filter(row => parseFloat(row.children[4].textContent.replace('%', '')) < 15).length;
+            
+            if (lowStockProducts > 0) {
+                suggestions.push(`${lowStockProducts} products need restocking`);
+            }
+            if (highProfitProducts > 0) {
+                suggestions.push(`${highProfitProducts} high-profit products available for promotion`);
+            }
+            if (lowProfitProducts > 0) {
+                suggestions.push(`${lowProfitProducts} products may need price optimization`);
+            }
+            
+            const suggestionsDiv = document.getElementById('smartSuggestions');
+            if (suggestions.length > 0) {
+                suggestionsDiv.innerHTML = `<strong>💡 Smart Insights:</strong><ul class="mb-0 mt-2">${suggestions.map(s => `<li>${s}</li>`).join('')}</ul>`;
+            } else {
+                suggestionsDiv.innerHTML = '<strong>✅ All products are performing well!</strong>';
+            }
+        }
+
+        // Show low stock alert
+        function showLowStockAlert() {
+            const rows = document.querySelectorAll('.table.table-hover tbody tr');
+            const lowStockProducts = [];
+            
+            rows.forEach(row => {
+                const stock = parseInt(row.children[5].textContent);
+                if (stock < 10) {
+                    lowStockProducts.push({
+                        name: row.children[0].textContent.trim(),
+                        stock: stock,
+                        price: row.children[2].textContent
+                    });
+                }
+            });
+            
+            if (lowStockProducts.length > 0) {
+                const alertHtml = `
+                    <div class="alert alert-warning">
+                        <h6><i class="fas fa-exclamation-triangle"></i> Low Stock Alert</h6>
+                        <ul class="mb-0">
+                            ${lowStockProducts.map(p => `<li><strong>${p.name}</strong> - Only ${p.stock} left (${p.price})</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+                showModal('Low Stock Alert', alertHtml);
+            } else {
+                showModal('Low Stock Alert', '<div class="alert alert-success">✅ All products have sufficient stock!</div>');
+            }
+        }
+
+        // Show high profit products
+        function showHighProfitProducts() {
+            const rows = document.querySelectorAll('.table.table-hover tbody tr');
+            const highProfitProducts = [];
+            
+            rows.forEach(row => {
+                const profitMargin = parseFloat(row.children[4].textContent.replace('%', ''));
+                if (profitMargin > 30) {
+                    highProfitProducts.push({
+                        name: row.children[0].textContent.trim(),
+                        profit: profitMargin,
+                        price: row.children[2].textContent,
+                        stock: row.children[5].textContent
+                    });
+                }
+            });
+            
+            if (highProfitProducts.length > 0) {
+                const alertHtml = `
+                    <div class="alert alert-success">
+                        <h6><i class="fas fa-chart-line"></i> High Profit Products</h6>
+                        <ul class="mb-0">
+                            ${highProfitProducts.map(p => `<li><strong>${p.name}</strong> - ${p.profit.toFixed(1)}% profit (${p.price}, Stock: ${p.stock})</li>`).join('')}
+                        </ul>
+                        <p class="mt-2 mb-0"><strong>💡 Suggestion:</strong> Consider promoting these high-margin products!</p>
+                    </div>
+                `;
+                showModal('High Profit Products', alertHtml);
+            } else {
+                showModal('High Profit Products', '<div class="alert alert-info">No products with >30% profit margin found.</div>');
+            }
+        }
+
+        // Show sales prediction analysis
+        function showPredictionAnalysis() {
+            const rows = document.querySelectorAll('.table.table-hover tbody tr');
+            const predictions = [];
+            
+            rows.forEach(row => {
+                const name = row.children[0].textContent.trim();
+                const stock = parseInt(row.children[5].textContent);
+                const unitsSold = parseInt(row.children[6].textContent);
+                const profitMargin = parseFloat(row.children[4].textContent.replace('%', ''));
+                
+                // Simple prediction based on historical data and current metrics
+                let prediction = 'Stable';
+                let suggestion = 'Maintain current strategy';
+                
+                if (unitsSold > 20 && stock < 20) {
+                    prediction = 'High Demand';
+                    suggestion = 'Consider restocking soon';
+                } else if (unitsSold < 5 && stock > 50) {
+                    prediction = 'Low Demand';
+                    suggestion = 'Consider promotions or price adjustments';
+                } else if (profitMargin > 40) {
+                    prediction = 'High Profit Potential';
+                    suggestion = 'Great margin, focus on sales';
+                }
+                
+                predictions.push({ name, prediction, suggestion, stock, unitsSold, profitMargin });
+            });
+            
+            const alertHtml = `
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-crystal-ball"></i> Sales Prediction Analysis</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Prediction</th>
+                                    <th>Suggestion</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${predictions.map(p => `
+                                    <tr>
+                                        <td><strong>${p.name}</strong></td>
+                                        <td><span class="badge bg-${p.prediction === 'High Demand' ? 'success' : p.prediction === 'Low Demand' ? 'warning' : 'info'}">${p.prediction}</span></td>
+                                        <td>${p.suggestion}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            showModal('Sales Prediction Analysis', alertHtml);
+        }
+
+        // Generic modal function
+        function showModal(title, content) {
+            const modalHtml = `
+                <div class="modal fade" id="analysisModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">${title}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                ${content}
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Remove existing modal if any
+            const existingModal = document.getElementById('analysisModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+            
+            // Add new modal
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('analysisModal'));
+            modal.show();
+        }
+
+        // Initialize smart suggestions on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updateSmartSuggestions();
         });
     </script>
 </body>
