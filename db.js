@@ -1,12 +1,13 @@
 const { Pool } = require('pg');
+require('dotenv').config();
 
 // Database configuration
 const pool = new Pool({
-  user: 'postgres',
-  host: 'localhost',
-  database: 'seller_dashboard',
-  password: 'postgres',
-  port: 5432,
+  user: process.env.DB_USER || 'postgres',
+  host: process.env.DB_HOST || 'localhost',
+  database: process.env.DB_NAME || 'seller_dashboard',
+  password: process.env.DB_PASSWORD || 'postgres',
+  port: process.env.DB_PORT || 5432,
 });
 
 // Initialize database tables
@@ -466,6 +467,12 @@ const db = {
     `;
     
     const result = await pool.query(query, [userId, id, ...values]);
+    if (!result.rows[0]) {
+      throw new Error('No product updated. Check userId and productId.');
+    }
+    // Ensure stock and price are numbers
+    if (result.rows[0].stock) result.rows[0].stock = Number(result.rows[0].stock);
+    if (result.rows[0].price) result.rows[0].price = Number(result.rows[0].price);
     return result.rows[0];
   },
 
