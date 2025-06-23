@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web WhatsApp - AI Assistant</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #e5ddd5;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .whatsapp-container {
+            display: flex;
+            height: 100vh;
+            background: #fff;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .sidebar {
+            width: 320px;
+            background: #fff;
+            border-right: 1px solid #e9edef;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .right-sidebar {
+            width: 300px;
+            background: #fff;
+            border-left: 1px solid #e9edef;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .right-sidebar-header {
+            background: #f0f2f5;
+            padding: 16px 20px;
+            border-bottom: 1px solid #e9edef;
+        }
+
+        .right-sidebar-header h6 {
+            margin: 0;
+            font-size: 16px;
+            color: #111b21;
+            font-weight: 600;
+        }
+
+        .right-sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .history-item {
+            padding: 12px;
+            border-bottom: 1px solid #f0f2f5;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .history-item:hover {
+            background: #f5f6f6;
+        }
+
+        .history-item h6 {
+            margin: 0 0 4px 0;
+            font-size: 14px;
+            color: #111b21;
+        }
+
+        .history-item p {
+            margin: 0;
+            font-size: 12px;
+            color: #667781;
+        }
+
+        .business-stats {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .stat-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: #667781;
+        }
+
+        .stat-value {
+            font-size: 13px;
+            font-weight: 600;
+            color: #111b21;
+        }
+
+        .quick-actions {
+            margin-top: 16px;
+        }
+
+        .quick-action-btn {
+            width: 100%;
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            border: 1px solid #e9edef;
+            background: #fff;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .quick-action-btn:hover {
+            background: #f5f6f6;
+            border-color: #25d366;
+        }
+
+        .sidebar-header {
+            background: #f0f2f5;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #e9edef;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #25d366;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .user-details h6 {
+            margin: 0;
+            font-size: 16px;
+            color: #111b21;
+        }
+
+        .user-details small {
+            color: #667781;
+            font-size: 13px;
+        }
+
+        .chat-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .chat-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-bottom: 1px solid #f0f2f5;
+        }
+
+        .chat-item:hover {
+            background: #f5f6f6;
+        }
+
+        .chat-item.active {
+            background: #f0f2f5;
+        }
+
+        .chat-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: #25d366;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            margin-right: 12px;
+        }
+
+        .chat-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .chat-name {
+            font-weight: 500;
+            color: #111b21;
+            margin-bottom: 3px;
+            font-size: 15px;
+        }
+
+        .chat-preview {
+            color: #667781;
+            font-size: 13px;
+        }
+
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #efeae2;
+        }
+
+        .chat-header {
+            background: #f0f2f5;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #e9edef;
+        }
+
+        .chat-contact {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .chat-contact-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #25d366;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .chat-contact-info h6 {
+            margin: 0 0 2px 0;
+            font-size: 16px;
+            color: #111b21;
+            font-weight: 600;
+        }
+
+        .chat-contact-info small {
+            color: #667781;
+            font-size: 13px;
+        }
+
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 20px;
+            background: #efeae2;
+        }
+
+        .message {
+            margin-bottom: 12px;
+            display: flex;
+            align-items: flex-end;
+        }
+
+        .message.sent {
+            justify-content: flex-end;
+        }
+
+        .message.received {
+            justify-content: flex-start;
+        }
+
+        .message-content {
+            max-width: 75%;
+            padding: 10px 14px;
+            border-radius: 12px;
+            word-wrap: break-word;
+            line-height: 1.4;
+
+
+            font-size: 14px;
+        }
+
+        .message.sent .message-content {
+            background: #dcf8c6;
+            color: #111b21;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.received .message-content {
+            background: #fff;
+            color: #111b21;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .message-time {
+            font-size: 11px;
+            color: #667781;
+            margin-top: 4px;
+            opacity: 0.8;
+        }
+
+        .message.sent .message-time {
+            text-align: right;
+        }
+
+        .message.received .message-time {
+            text-align: left;
+        }
+
+        /* Enhanced message styling for formatted content */
+        .message-content h1, .message-content h2, .message-content h3, 
+        .message-content h4, .message-content h5, .message-content h6 {
+            margin: 8px 0 4px 0;
+            color: inherit;
+            font-weight: 600;
+        }
+
+        .message-content p {
+            margin: 4px 0;
+        }
+
+        .message-content ul, .message-content ol {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+
+        .message-content li {
+            margin: 2px 0;
+        }
+
+        .message-content strong {
+            font-weight: 600;
+        }
+
+        .message-content em {
+            font-style: italic;
+        }
+
+        .message-content code {
+            background: rgba(0,0,0,0.1);
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+
+        .message-content blockquote {
+            border-left: 3px solid #25d366;
+            margin: 8px 0;
+            padding-left: 12px;
+            color: #667781;
+        }
+
+        .input-area {
+            background: #f0f2f5;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .input-container {
+            flex: 1;
+            background: #fff;
+            border-radius: 20px;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .input-container input {
+            border: none;
+            outline: none;
+            flex: 1;
+            font-size: 15px;
+            padding: 6px 0;
+        }
+
+        .send-button {
+            background: #25d366;
+            color: white;
+            border: none;
+            padding: 10px 14px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 15px;
+            transition: all 0.2s ease;
+        }
+
+        .send-button:hover {
+            background: #128c7e;
+            transform: scale(1.05);
+        }
+
+        .upload-button {
+            background: #2874f0;
+            color: white;
+            border: none;
+            padding: 10px 14px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 15px;
+            transition: all 0.2s ease;
+        }
+        
+        .upload-button:hover {
+            background: #1a5bb8;
+            transform: scale(1.05);
+        }
+        
+        .csv-upload-info {
+            padding: 8px 15px;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+            font-size: 12px;
+            border-radius: 8px;
+            margin-top: 8px;
+        }
+        
+        .csv-upload-info a {
+            color: #2874f0;
+            text-decoration: none;
+        }
+        
+        .csv-upload-info a:hover {
+            text-decoration: underline;
+        }
+
+        .typing-indicator {
+            display: none;
+            padding: 10px 14px;
+            background: #fff;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            max-width: 75%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #b3b3b3;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes typing {
+            0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+
+        .welcome-screen {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #f0f2f5;
+            color: #54656f;
+            padding: 24px;
+        }
+
+        .welcome-icon {
+            font-size: 80px;
+            color: #25d366;
+            margin-bottom: 24px;
+        }
+
+        .welcome-text h2 {
+            margin-bottom: 12px;
+            color: #111b21;
+            font-size: 28px;
+            font-weight: 600;
+        }
+
+        .welcome-text p {
+            text-align: center;
+            max-width: 400px;
+            line-height: 1.5;
+            font-size: 15px;
+            color: #667781;
+        }
+
+        .back-button {
+            position: absolute;
+            top: 24px;
+            left: 24px;
+            z-index: 1000;
+            padding: 12px 20px;
+            border-radius: 24px;
+            font-weight: 500;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="row">
+        <div class="col-2">
+            <a href="/seller-dashboard" class="btn btn-outline-secondary back-button">
+                <i class="fas fa-arrow-left"></i> Back
+            </a>
+        </div>
+        <div class="col-8">
+            <div class="whatsapp-container">
+                <!-- Sidebar -->
+                <div class="sidebar">
+                    <div class="sidebar-header">
+                        <div class="user-info">
+                            <div class="user-avatar">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-0"><%= sellerData.profile.businessName %></h6>
+                                <small>Online</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chat-list" id="chatList">
+                        <div class="chat-item active" onclick="selectChat('ai-assistant')">
+                            <div class="chat-avatar">
+                                <i class="fas fa-robot"></i>
+                            </div>
+                            <div class="chat-info">
+                                <div class="chat-name">Flipkart Agent</div>
+                                <div class="chat-preview">Your business assistant</div>
+                            </div>
+                        </div>
+                        
+                        <div class="chat-item" onclick="selectChat('onboarding')">
+                            <div class="chat-avatar">
+                                <i class="fas fa-rocket"></i>
+                            </div>
+                            <div class="chat-info">
+                                <div class="chat-name">Onboarding Guide</div>
+                                <div class="chat-preview">Get started with your business</div>
+                            </div>
+                        </div>
+                        
+                        <div class="chat-item" onclick="selectChat('support')">
+                            <div class="chat-avatar">
+                                <i class="fas fa-headset"></i>
+                            </div>
+                            <div class="chat-info">
+                                <div class="chat-name">Support Team</div>
+                                <div class="chat-preview">Get help anytime</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Area -->
+                <div class="chat-area">
+                    <!-- Welcome Screen -->
+                    <div class="welcome-screen" id="welcomeScreen">
+                        <div class="welcome-icon">
+                            <i class="fab fa-whatsapp"></i>
+                        </div>
+                        <div class="text-center">
+                            <h2>WhatsApp Web</h2>
+                            <p>Select a chat to start messaging. Your AI assistant is ready to help you manage your business!</p>
+                        </div>
+                    </div>
+
+                    <!-- Active Chat -->
+                    <div class="active-chat" id="activeChat" style="display: none; height: 100%; flex-direction: column;">
+                        <div class="chat-header">
+                            <div class="chat-contact">
+                                <div class="chat-contact-avatar" id="contactAvatar">
+                                    <i class="fas fa-robot"></i>
+                                </div>
+                                <div>
+                                    <h6 class="mb-0" id="contactName">Flipkart Assistant</h6>
+                                    <small id="contactStatus">Online</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="messages-container" id="messagesContainer">
+                            <!-- Messages will be added here -->
+                        </div>
+
+                        <div class="typing-indicator" id="typingIndicator">
+                            <div class="typing-dots">
+                                <div class="typing-dot"></div>
+                                <div class="typing-dot"></div>
+                                <div class="typing-dot"></div>
+                            </div>
+                        </div>
+
+                        <div class="input-area">
+                            <div class="input-container">
+                                <input type="text" placeholder="Type a message" id="messageInput" onkeypress="handleKeyPress(event)">
+                                <input type="file" id="csvFileInput" accept=".csv" style="display: none;" onchange="handleCSVUpload(event)">
+                                <button class="upload-button" onclick="document.getElementById('csvFileInput').click()" title="Upload CSV Orders">
+                                    <i class="fas fa-file-upload"></i>
+                                </button>
+                                <button class="send-button" onclick="sendMessage()">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
+                            <div class="csv-upload-info" id="csvUploadInfo" style="display: none;">
+                                <small class="text-muted">📁 <a href="/demo-orders.csv" download>Download Demo CSV</a> | Supported format: order_id,customer_name,product_name,quantity,unit_price,total_amount,order_date,status</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Sidebar -->
+                <div class="right-sidebar">
+                    <div class="right-sidebar-header">
+                        <h6><i class="fas fa-chart-bar"></i> Business Overview</h6>
+                    </div>
+                    <div class="right-sidebar-content">
+                        <div class="business-stats">
+                            <div class="stat-item">
+                                <span class="stat-label">Total Products</span>
+                                <span class="stat-value"><%= sellerData.products.length %></span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Total Orders</span>
+                                <span class="stat-value"><%= sellerData.analytics.totalOrders %></span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Total Revenue</span>
+                                <span class="stat-value">₹<%= sellerData.analytics.totalRevenue.toLocaleString() %></span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Pending Orders</span>
+                                <span class="stat-value"><%= sellerData.analytics.pendingOrders %></span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Low Stock Items</span>
+                                <span class="stat-value"><%= sellerData.analytics.lowStockItems %></span>
+                            </div>
+                        </div>
+
+                        <div class="quick-actions">
+                            <h6 style="margin-bottom: 12px; color: #111b21;">Quick Actions</h6>
+                            <button class="quick-action-btn" onclick="sendQuickMessage('Show me all products')">
+                                <i class="fas fa-box"></i> View Products
+                            </button>
+                            <button class="quick-action-btn" onclick="sendQuickMessage('Show me recent orders')">
+                                <i class="fas fa-list"></i> Recent Orders
+                            </button>
+                            <button class="quick-action-btn" onclick="sendQuickMessage('What is my business summary?')">
+                                <i class="fas fa-chart-line"></i> Business Summary
+                            </button>
+                            <button class="quick-action-btn" onclick="sendQuickMessage('Show me low stock alerts')">
+                                <i class="fas fa-exclamation-triangle"></i> Stock Alerts
+                            </button>
+                            <button class="quick-action-btn" onclick="sendQuickMessage('Show me high profit products')">
+                                <i class="fas fa-dollar-sign"></i> High Profit Items
+                            </button>
+                            <button class="quick-action-btn" onclick="document.getElementById('csvFileInput').click()">
+                                <i class="fas fa-file-upload"></i> Upload CSV Orders
+                            </button>
+                        </div>
+
+                        <div style="margin-top: 20px;">
+                            <h6 style="margin-bottom: 12px; color: #111b21;">Recent Activity</h6>
+                            <div class="history-item">
+                                <h6>New Order Received</h6>
+                                <p>Order #1234 - ₹2,500</p>
+                            </div>
+                            <div class="history-item">
+                                <h6>Product Updated</h6>
+                                <p>Wireless Headphones - Stock updated</p>
+                            </div>
+                            <div class="history-item">
+                                <h6>Low Stock Alert</h6>
+                                <p>Gaming Mouse - Only 5 left</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        let currentChat = null;
+        let messages = {};
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add welcome message for AI Assistant
+            addMessage('ai-assistant', 'Hello! I\'m your AI business assistant. I can help you manage your products, orders, and get business insights. How can I help you today?', 'received');
+        });
+
+        // Select chat
+        function selectChat(chatId) {
+            currentChat = chatId;
+            
+            // Update active chat item
+            document.querySelectorAll('.chat-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.currentTarget.classList.add('active');
+
+            // Show active chat
+            document.getElementById('welcomeScreen').style.display = 'none';
+            document.getElementById('activeChat').style.display = 'flex';
+
+            // Update contact info
+            updateContactInfo(chatId);
+
+            // Load messages
+            loadMessages(chatId);
+        }
+
+        // Update contact info
+        function updateContactInfo(chatId) {
+            const contactName = document.getElementById('contactName');
+            const contactAvatar = document.getElementById('contactAvatar');
+
+            if (chatId === 'ai-assistant') {
+                contactName.textContent = 'Flipkart Agent';
+                contactAvatar.innerHTML = '<i class="fas fa-robot"></i>';
+            } else if (chatId === 'onboarding') {
+                contactName.textContent = 'Onboarding Guide';
+                contactAvatar.innerHTML = '<i class="fas fa-rocket"></i>';
+            } else if (chatId === 'support') {
+                contactName.textContent = 'Support Team';
+                contactAvatar.innerHTML = '<i class="fas fa-headset"></i>';
+            }
+        }
+
+        // Load messages
+        function loadMessages(chatId) {
+            const container = document.getElementById('messagesContainer');
+            
+            if (!messages[chatId]) {
+                messages[chatId] = [];
+            }
+
+            // Clear container
+            container.innerHTML = '';
+
+            // Add messages
+            messages[chatId].forEach(msg => {
+                addMessageToContainer(msg.sender, msg.text);
+            });
+
+            // Scroll to bottom
+            scrollToBottom();
+        }
+
+        // Add message
+        function addMessage(chatId, text, type) {
+            if (!messages[chatId]) {
+                messages[chatId] = [];
+            }
+
+            const message = {
+                sender: type,
+                text: text,
+                timestamp: new Date()
+            };
+
+            messages[chatId].push(message);
+
+            // If this is the current chat, add to container
+            if (currentChat === chatId) {
+                addMessageToContainer(type, text);
+                scrollToBottom();
+            }
+        }
+
+        // Add message to container
+        function addMessageToContainer(sender, text) {
+            const container = document.getElementById('messagesContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            // Format the text with proper line breaks and styling
+            const formattedText = formatMessage(text);
+
+            messageDiv.innerHTML = `
+                <div class="message-content">
+                    ${formattedText}
+                    <div class="message-time">${time}</div>
+                </div>
+            `;
+
+            container.appendChild(messageDiv);
+        }
+
+        // Format message text with proper styling
+        function formatMessage(text) {
+            // If the text already contains HTML tags, don't apply markdown formatting
+            if (text.includes('<div') || text.includes('<span') || text.includes('<h') || text.includes('<p>')) {
+                return text;
+            }
+            
+            let formatted = text
+                // Bold text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                // Italic text
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                // Code blocks
+                .replace(/```(.*?)```/gs, '<code>$1</code>')
+                // Inline code
+                .replace(/`(.*?)`/g, '<code>$1</code>')
+                // Headers
+                .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+                .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+                .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+                // Lists
+                .replace(/^- (.*$)/gm, '<li>$1</li>')
+                .replace(/^\d+\. (.*$)/gm, '<li>$1</li>')
+                // Line breaks
+                .replace(/\n/g, '<br>');
+
+            // Wrap lists in proper tags
+            formatted = formatted.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');
+            
+            // Clean up multiple line breaks
+            formatted = formatted.replace(/<br><br><br>/g, '<br><br>');
+            
+            return formatted;
+        }
+
+        // Send message
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+
+            if (!message || !currentChat) return;
+
+            // Add user message
+            addMessage(currentChat, message, 'sent');
+            input.value = '';
+
+            // Show typing indicator
+            showTyping();
+
+            // Handle different chat types
+            if (currentChat === 'ai-assistant') {
+                await handleAIMessage(message);
+            } else if (currentChat === 'onboarding') {
+                await handleOnboardingMessage(message);
+            } else if (currentChat === 'support') {
+                await handleSupportMessage(message);
+            }
+        }
+
+        // Handle AI message
+        async function handleAIMessage(message) {
+            try {
+                const response = await fetch('/chatbot', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message: message })
+                });
+
+                const data = await response.json();
+                hideTyping();
+
+                if (data.success) {
+                    addMessage(currentChat, data.message, 'received');
+                } else {
+                    addMessage(currentChat, 'Sorry, I encountered an error. Please try again.', 'received');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                hideTyping();
+                addMessage(currentChat, 'Sorry, I encountered an error. Please try again.', 'received');
+            }
+        }
+
+        // Handle onboarding message
+        async function handleOnboardingMessage(message) {
+            setTimeout(() => {
+                hideTyping();
+                
+                const onboardingResponse = `🚀 **Welcome to Flipkart Seller Hub!**
+
+Here's your quick onboarding guide:
+
+### **1. Getting Started**
+- Your demo account has been created with sample products and orders
+- You can explore all features immediately
+- Default password: **password123**
+
+### **2. Key Features Available**
+- **📊 Dashboard**: View your business analytics and performance
+- **📦 Products**: Manage your product catalog
+- **📋 Orders**: Track and update order statuses
+- **🤖 AI Assistant**: Get business insights and help
+- **💬 WhatsApp Clone**: Chat interface for business management
+
+### **3. Next Steps**
+- Explore the dashboard to see your business overview
+- Try the AI assistant for business insights
+- Update your profile with real business information
+- Add your own products to the catalog
+
+### **4. Need Help?**
+- Use the AI assistant for business questions
+- Contact support for technical issues
+- Check the chat logs for conversation history
+
+**Ready to start?** Just ask the AI assistant about your business!`;
+
+                addMessage(currentChat, onboardingResponse, 'received');
+            }, 1500);
+        }
+
+        // Handle support message
+        async function handleSupportMessage(message) {
+            // Simulate support response
+            setTimeout(() => {
+                hideTyping();
+                addMessage(currentChat, 'Thank you for contacting support. Our team will get back to you soon.', 'received');
+            }, 2000);
+        }
+
+        // Handle key press
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        // Show typing indicator
+        function showTyping() {
+            document.getElementById('typingIndicator').style.display = 'block';
+            scrollToBottom();
+        }
+
+        // Hide typing indicator
+        function hideTyping() {
+            document.getElementById('typingIndicator').style.display = 'none';
+        }
+
+        // Scroll to bottom
+        function scrollToBottom() {
+            const container = document.getElementById('messagesContainer');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Send quick message function for action buttons
+        function sendQuickMessage(message) {
+            const input = document.getElementById('messageInput');
+            input.value = message;
+            sendMessage();
+        }
+        
+        // CSV Upload Functions
+        function handleCSVUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            if (!file.name.toLowerCase().endsWith('.csv')) {
+                alert('Please select a CSV file');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const csvData = e.target.result;
+                processCSVOrders(csvData);
+            };
+            reader.readAsText(file);
+            
+            // Reset file input
+            event.target.value = '';
+        }
+        
+        function processCSVOrders(csvData) {
+            // Add user message showing CSV upload
+            addMessage(currentChat, '📁 Uploading CSV orders...', 'sent');
+            
+            // Show typing indicator
+            showTyping();
+            
+            // Send to server for processing
+            fetch('/chatbot', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    message: 'Process the following orders via upload csv',
+                    csvData: csvData
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideTyping();
+                
+                if (data.success) {
+                    // Add assistant response
+                    addMessage(currentChat, data.message, 'received');
+                } else {
+                    addMessage(currentChat, data.message || 'Sorry, I encountered an error processing the CSV. Please try again.', 'received');
+                }
+            })
+            .catch(error => {
+                hideTyping();
+                addMessage(currentChat, 'Sorry, I encountered an error processing the CSV. Please try again.', 'received');
+                console.error('Error:', error);
+            });
+        }
+        
+        // Show CSV upload info when hovering over upload button
+        function showCSVInfo() {
+            document.getElementById('csvUploadInfo').style.display = 'block';
+        }
+        
+        function hideCSVInfo() {
+            document.getElementById('csvUploadInfo').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
