@@ -186,7 +186,7 @@ async function initializeDatabase() {
         ai_response TEXT NOT NULL,
         response_type VARCHAR(50) DEFAULT 'general',
         message_category VARCHAR(50) DEFAULT 'query',
-        processing_time_ms INTEGER,
+        processing_time_ms BIGINT,
         tokens_used INTEGER,
         success BOOLEAN DEFAULT true,
         error_message TEXT,
@@ -313,6 +313,39 @@ async function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_profit_analytics_user_id ON profit_analytics(user_id);
       CREATE INDEX IF NOT EXISTS idx_profit_analytics_product_id ON profit_analytics(product_id);
       CREATE INDEX IF NOT EXISTS idx_profit_analytics_date ON profit_analytics(date);
+    `);
+
+    // Create payment table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS payments (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES seller_users(id) ON DELETE CASCADE,
+        order_id VARCHAR(50) NOT NULL,
+        customer_name VARCHAR(100) NOT NULL,
+        customer_email VARCHAR(100),
+        customer_phone VARCHAR(20),
+        payment_method VARCHAR(50) NOT NULL,
+        payment_status VARCHAR(30) NOT NULL DEFAULT 'pending',
+        payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        amount DECIMAL(10,2) NOT NULL,
+        received_amount DECIMAL(10,2) DEFAULT 0,
+        refund_amount DECIMAL(10,2) DEFAULT 0,
+        processing_fee DECIMAL(10,2) DEFAULT 0,
+        transaction_id VARCHAR(100),
+        payment_gateway VARCHAR(50),
+        dispute_status VARCHAR(30) DEFAULT 'none',
+        dispute_reason TEXT,
+        dispute_date TIMESTAMP,
+        resolution_date TIMESTAMP,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      
+      CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id);
+      CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments(order_id);
+      CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(payment_status);
+      CREATE INDEX IF NOT EXISTS idx_payments_date ON payments(payment_date);
     `);
 
     client.release();
@@ -463,9 +496,9 @@ const db = {
 
   // Get analytics
   async getAnalytics(userId) {
-    const totalRevenue = await pool.query('SELECT COALESCE(SUM(total), 0) as total FROM orders WHERE user_id = $1 AND status = \'delivered\'', [userId]);
+    const totalRevenue = await pool.query('SELECT COALESCE(SUM(total), 0) as total FROM orders WHERE user_id = $1 AND status = \'Delivered\'', [userId]);
     const totalOrders = await pool.query('SELECT COUNT(*) as count FROM orders WHERE user_id = $1', [userId]);
-    const pendingOrders = await pool.query('SELECT COUNT(*) as count FROM orders WHERE user_id = $1 AND status = \'processing\'', [userId]);
+    const pendingOrders = await pool.query('SELECT COUNT(*) as count FROM orders WHERE user_id = $1 AND status = \'Processing\'', [userId]);
     const lowStockItems = await pool.query('SELECT COUNT(*) as count FROM products WHERE user_id = $1 AND stock < 10', [userId]);
 
     return {
@@ -493,7 +526,7 @@ const db = {
         ai_response TEXT NOT NULL,
         response_type VARCHAR(50) DEFAULT 'general',
         message_category VARCHAR(50) DEFAULT 'query',
-        processing_time_ms INTEGER,
+        processing_time_ms BIGINT,
         tokens_used INTEGER,
         success BOOLEAN DEFAULT true,
         error_message TEXT,
@@ -1321,6 +1354,278 @@ const db = {
       console.error('Error calculating profit recommendations:', error);
       throw error;
     }
+  },
+
+  // Payment management functions
+  async createPaymentTable() {
+    const query = `
+        CREATE TABLE IF NOT EXISTS payments (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            order_id VARCHAR(50) NOT NULL,
+            customer_name VARCHAR(100) NOT NULL,
+            customer_email VARCHAR(100),
+            customer_phone VARCHAR(20),
+            payment_method VARCHAR(50) NOT NULL,
+            payment_status VARCHAR(30) NOT NULL DEFAULT 'pending',
+            payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            amount DECIMAL(10,2) NOT NULL,
+            received_amount DECIMAL(10,2) DEFAULT 0,
+            refund_amount DECIMAL(10,2) DEFAULT 0,
+            processing_fee DECIMAL(10,2) DEFAULT 0,
+            transaction_id VARCHAR(100),
+            payment_gateway VARCHAR(50),
+            dispute_status VARCHAR(30) DEFAULT 'none',
+            dispute_reason TEXT,
+            dispute_date TIMESTAMP,
+            resolution_date TIMESTAMP,
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        
+        CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id);
+        CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments(order_id);
+        CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(payment_status);
+        CREATE INDEX IF NOT EXISTS idx_payments_date ON payments(payment_date);
+    `;
+    
+    try {
+        await pool.query(query);
+        console.log('Payment table created successfully');
+    } catch (error) {
+        console.error('Error creating payment table:', error);
+        throw error;
+    }
+  },
+
+  async addPayment(userId, paymentData) {
+    const query = `
+        INSERT INTO payments (
+            user_id, order_id, customer_name, customer_email, customer_phone,
+            payment_method, payment_status, amount, received_amount, refund_amount,
+            processing_fee, transaction_id, payment_gateway, dispute_status,
+            dispute_reason, notes
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        RETURNING id
+    `;
+    
+    const values = [
+        userId,
+        paymentData.order_id,
+        paymentData.customer_name,
+        paymentData.customer_email,
+        paymentData.customer_phone,
+        paymentData.payment_method,
+        paymentData.payment_status,
+        paymentData.amount,
+        paymentData.received_amount || paymentData.amount,
+        paymentData.refund_amount || 0,
+        paymentData.processing_fee || 0,
+        paymentData.transaction_id,
+        paymentData.payment_gateway,
+        paymentData.dispute_status || 'none',
+        paymentData.dispute_reason,
+        paymentData.notes
+    ];
+    
+    try {
+        const result = await pool.query(query, values);
+        return result.rows[0].id;
+    } catch (error) {
+        console.error('Error adding payment:', error);
+        throw error;
+    }
+  },
+
+  async getPayments(userId, limit = 50, offset = 0, filters = {}) {
+    let query = `
+        SELECT * FROM payments 
+        WHERE user_id = $1
+    `;
+    
+    const values = [userId];
+    let paramCount = 1;
+    
+    // Add filters
+    if (filters.status) {
+        paramCount++;
+        query += ` AND payment_status = $${paramCount}`;
+        values.push(filters.status);
+    }
+    
+    if (filters.payment_method) {
+        paramCount++;
+        query += ` AND payment_method = $${paramCount}`;
+        values.push(filters.payment_method);
+    }
+    
+    if (filters.customer_name) {
+        paramCount++;
+        query += ` AND customer_name ILIKE $${paramCount}`;
+        values.push(`%${filters.customer_name}%`);
+    }
+    
+    if (filters.date_from) {
+        paramCount++;
+        query += ` AND payment_date >= $${paramCount}`;
+        values.push(filters.date_from);
+    }
+    
+    if (filters.date_to) {
+        paramCount++;
+        query += ` AND payment_date <= $${paramCount}`;
+        values.push(filters.date_to);
+    }
+    
+    query += ` ORDER BY payment_date DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
+    values.push(limit, offset);
+    
+    try {
+        const result = await pool.query(query, values);
+        return result.rows;
+    } catch (error) {
+        console.error('Error getting payments:', error);
+        throw error;
+    }
+  },
+
+  async getPaymentById(userId, paymentId) {
+    const query = `
+        SELECT * FROM payments 
+        WHERE id = $1 AND user_id = $2
+    `;
+    
+    try {
+        const result = await pool.query(query, [paymentId, userId]);
+        return result.rows[0];
+    } catch (error) {
+        console.error('Error getting payment by ID:', error);
+        throw error;
+    }
+  },
+
+  async updatePaymentStatus(userId, paymentId, status, notes = null) {
+    const query = `
+        UPDATE payments 
+        SET payment_status = $1, notes = COALESCE($2, notes), updated_at = CURRENT_TIMESTAMP
+        WHERE id = $3 AND user_id = $4
+        RETURNING *
+    `;
+    
+    try {
+        const result = await pool.query(query, [status, notes, paymentId, userId]);
+        return result.rows[0];
+    } catch (error) {
+        console.error('Error updating payment status:', error);
+        throw error;
+    }
+  },
+
+  async updateDisputeStatus(userId, paymentId, disputeStatus, disputeReason = null) {
+    const query = `
+        UPDATE payments 
+        SET dispute_status = $1, dispute_reason = $2, dispute_date = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $3 AND user_id = $4
+        RETURNING *
+    `;
+    
+    try {
+        const result = await pool.query(query, [disputeStatus, disputeReason, paymentId, userId]);
+        return result.rows[0];
+    } catch (error) {
+        console.error('Error updating dispute status:', error);
+        throw error;
+    }
+  },
+
+  async getPaymentAnalytics(userId, days = 30) {
+    const query = `
+        SELECT 
+            total_payments,
+            total_amount,
+            total_received,
+            total_refunded,
+            total_fees,
+            completed_payments,
+            pending_payments,
+            failed_payments,
+            refunded_payments,
+            disputed_payments,
+            avg_payment_amount
+        FROM payment_analytics 
+        WHERE user_id = $1
+    `;
+    
+    try {
+        const result = await pool.query(query, [userId]);
+        return result.rows[0] || {
+            total_payments: 0,
+            total_amount: 0,
+            total_received: 0,
+            total_refunded: 0,
+            total_fees: 0,
+            completed_payments: 0,
+            pending_payments: 0,
+            failed_payments: 0,
+            refunded_payments: 0,
+            disputed_payments: 0,
+            avg_payment_amount: 0
+        };
+    } catch (error) {
+        console.error('Error getting payment analytics:', error);
+        throw error;
+    }
+  },
+
+  async getPaymentMethods(userId) {
+    const query = `
+        SELECT DISTINCT payment_method, COUNT(*) as usage_count
+        FROM payments 
+        GROUP BY payment_method 
+        ORDER BY usage_count DESC
+    `;
+    
+    try {
+        const result = await this.query(query);
+        return result.rows;
+    } catch (error) {
+        console.error('Error getting payment methods:', error);
+        throw error;
+    }
+  },
+
+  // Get complete seller data for AI agent
+  async getSellerData(userId) {
+    try {
+      const [profile, products, orders, analytics, paymentAnalytics] = await Promise.all([
+        this.getSellerProfile(userId),
+        this.getProducts(userId),
+        this.getOrders(userId),
+        this.getAnalytics(userId),
+        this.getPaymentAnalytics(userId, 30)
+      ]);
+
+      return {
+        profile: {
+          businessName: profile.business_name,
+          ownerName: profile.owner_name,
+          email: profile.email,
+          phone: profile.phone,
+          address: profile.address,
+          gstNumber: profile.gst_number,
+          rating: parseFloat(profile.rating || 0),
+          totalSales: parseFloat(profile.total_sales || 0)
+        },
+        products,
+        orders,
+        analytics,
+        paymentAnalytics
+      };
+    } catch (error) {
+      console.error('Error getting seller data:', error);
+      throw error;
+    }
   }
 };
 
@@ -1364,5 +1669,15 @@ module.exports = {
   updateProductWithProfit: db.updateProductWithProfit,
   getProfitAnalytics: db.getProfitAnalytics,
   getProductProfitHistory: db.getProductProfitHistory,
-  calculateProfitRecommendations: db.calculateProfitRecommendations
+  calculateProfitRecommendations: db.calculateProfitRecommendations,
+  // Payment management functions
+  createPaymentTable: db.createPaymentTable,
+  addPayment: db.addPayment,
+  getPayments: db.getPayments,
+  getPaymentById: db.getPaymentById,
+  updatePaymentStatus: db.updatePaymentStatus,
+  updateDisputeStatus: db.updateDisputeStatus,
+  getPaymentAnalytics: db.getPaymentAnalytics,
+  getPaymentMethods: db.getPaymentMethods,
+  getSellerData: db.getSellerData
 }; 

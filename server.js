@@ -34,21 +34,32 @@ function requireLogin(req, res, next) {
 // Helper function to get seller data
 async function getSellerData(userId) {
     try {
-        const [profile, products, orders, analytics] = await Promise.all([
+        const [profile, products, orders, analytics, paymentAnalytics] = await Promise.all([
             db.getSellerProfile(userId),
             db.getProducts(userId),
             db.getOrders(userId),
-            db.getAnalytics(userId)
+            db.getAnalytics(userId),
+            db.getPaymentAnalytics(userId, 30)
         ]);
 
         return {
-            profile,
+            profile: {
+                businessName: profile.business_name,
+                ownerName: profile.owner_name,
+                email: profile.email,
+                phone: profile.phone,
+                address: profile.address,
+                gstNumber: profile.gst_number,
+                rating: parseFloat(profile.rating || 0),
+                totalSales: parseFloat(profile.total_sales || 0)
+            },
             products,
             orders,
-            analytics
+            analytics,
+            paymentAnalytics
         };
     } catch (error) {
-        console.error('Error fetching seller data:', error);
+        console.error('Error getting seller data:', error);
         throw error;
     }
 }
@@ -122,7 +133,7 @@ app.post('/onboarding', async (req, res) => {
             req.session.username = username;
             console.log('Onboarding successful, redirecting to dashboard');
             res.redirect('/seller-dashboard');
-        } else {
+    } else {
             res.render('login', { error: result.message });
         }
     } catch (error) {
@@ -183,7 +194,7 @@ app.get('/order-history-page', requireLogin, async (req, res) => {
 });
 
 // WhatsApp Clone page
-app.get('/whatsapp-clone', requireLogin, async (req, res) => {
+app.get('/whatsapp', requireLogin, async (req, res) => {
     try {
         const sellerData = await getSellerData(req.session.userId);
         res.render('whatsapp-clone', { sellerData });
@@ -204,11 +215,21 @@ app.get('/product-history', requireLogin, async (req, res) => {
     }
 });
 
+// Serve demo CSV file
+app.get('/demo-orders.csv', (req, res) => {
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="demo-orders.csv"');
+    res.sendFile(path.join(__dirname, 'demo-orders.csv'));
+});
+
 // AI Chatbot endpoint
 app.post('/chatbot', requireLogin, async (req, res) => {
     try {
-        const { message } = req.body;
-        const userId = req.session.userId;
+        const { message, csvData } = req.body;
+        console.log('Chatbot request received:', { message: message?.substring(0, 50), hasCsvData: !!csvData });
+        
+        // Force seller4 for all analytics/testing
+        const userId = 4; // seller4
 
         // Initialize AI agent
         const aiAgent = new FlipkartSellerAgent();
@@ -229,15 +250,90 @@ app.post('/chatbot', requireLogin, async (req, res) => {
             sessionId: req.sessionID
         };
 
-        // Handle message with AI agent
+        // Handle CSV processing if CSV data is provided
+        if (csvData && message.toLowerCase().includes('csv')) {
+            console.log('Processing CSV data...');
+            const startTime = Date.now();
+            try {
+                const csvResult = await aiAgent.processCSVOrders(csvData);
+                const processingTime = Date.now() - startTime;
+                console.log('CSV processing result:', { success: csvResult.success, processedOrders: csvResult.processedOrders });
+                
+                // Log the CSV processing
+                await db.insertChatLog({
+                    seller_id: userId,
+                    user_message: 'Uploaded CSV file for processing',
+                    ai_response: csvResult.message,
+                    response_type: 'csv_processing',
+                    message_category: 'orders',
+                    processing_time_ms: processingTime,
+                    success: csvResult.success
+                });
+
+                return res.json({
+                    success: csvResult.success,
+                    message: csvResult.message,
+                    responseType: 'csv_processing',
+                    messageCategory: 'orders'
+                });
+            } catch (csvError) {
+                const processingTime = Date.now() - startTime;
+                console.error('CSV processing error:', csvError);
+                
+                // Log the error
+                await db.insertChatLog({
+                    seller_id: userId,
+                    user_message: 'Uploaded CSV file for processing',
+                    ai_response: `Error processing CSV: ${csvError.message}`,
+                    response_type: 'csv_processing_error',
+                    message_category: 'orders',
+                    processing_time_ms: processingTime,
+                    success: false,
+                    error_message: csvError.message
+                });
+                
+                return res.json({
+                    success: false,
+                    message: `Error processing CSV: ${csvError.message}`,
+                    responseType: 'csv_processing_error',
+                    messageCategory: 'orders'
+                });
+            }
+        }
+
+        // Handle regular message with AI agent
         const response = await aiAgent.handleMessage(message, requestInfo);
         
         console.log('Chatbot response:', response);
 
-        // Extract the message string from the response object
-        const messageContent = response.message || response;
-        const responseType = response.responseType || 'general';
-        const messageCategory = response.messageCategory || 'query';
+        // Handle different response formats from AI agent
+        let messageContent, responseType, messageCategory;
+        
+        if (response && typeof response === 'object') {
+            // New format: { success: true, message: "...", responseType: "...", messageCategory: "..." }
+            if (response.success !== undefined && response.message) {
+                messageContent = response.message;
+                responseType = response.responseType || 'general';
+                messageCategory = response.messageCategory || 'query';
+            }
+            // Old format: { response: "...", responseType: "...", messageCategory: "..." }
+            else if (response.response) {
+                messageContent = response.response;
+                responseType = response.responseType || 'general';
+                messageCategory = response.messageCategory || 'query';
+            }
+            // Fallback: treat as string
+            else {
+                messageContent = response;
+                responseType = 'general';
+                messageCategory = 'query';
+    }
+  } else {
+            // String response
+            messageContent = response;
+            responseType = 'general';
+            messageCategory = 'query';
+        }
 
         res.json({
             success: true,
@@ -250,7 +346,7 @@ app.post('/chatbot', requireLogin, async (req, res) => {
         console.error('Chatbot error:', error);
         res.status(500).json({
             success: false,
-            message: 'Error processing your request. Please try again.'
+            message: `Error processing your request: ${error.message}`
         });
     }
 });
@@ -529,15 +625,399 @@ app.get('/api/order-history-stats', requireLogin, async (req, res) => {
     }
 });
 
+// Payment Details page
+app.get('/payment-details', requireLogin, async (req, res) => {
+    try {
+        const userId = req.session.userId;
+        const page = parseInt(req.query.page) || 1;
+        const limit = 20;
+        const offset = (page - 1) * limit;
+        
+        // Get filters from query parameters
+        const filters = {
+            status: req.query.status,
+            payment_method: req.query.payment_method,
+            customer_name: req.query.customer_name,
+            date_from: req.query.date_from,
+            date_to: req.query.date_to
+        };
+        
+        // Get payments with filters
+        const payments = await db.getPayments(userId, limit, offset, filters);
+        
+        // Get total count for pagination
+        const totalPayments = await db.getPayments(userId, 1000, 0, filters);
+        const totalPages = Math.ceil(totalPayments.length / limit);
+        
+        // Get payment analytics
+        const paymentAnalytics = await db.getPaymentAnalytics(userId, 30);
+        
+        // Build query string for pagination
+        const queryParams = new URLSearchParams(req.query);
+        queryParams.delete('page');
+        const queryString = queryParams.toString();
+        
+        res.render('payment-details', {
+            payments,
+            paymentAnalytics,
+            currentPage: page,
+            totalPages,
+            queryString
+        });
+    } catch (error) {
+        console.error('Error rendering payment details:', error);
+        res.status(500).send('Error loading payment details');
+    }
+});
+
+// Payment API endpoints
+app.get('/api/payments/:id', requireLogin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const payment = await db.getPaymentById(req.session.userId, parseInt(id));
+        
+        if (!payment) {
+            return res.status(404).json({ error: 'Payment not found' });
+        }
+        
+        res.json(payment);
+    } catch (error) {
+        console.error('Error fetching payment:', error);
+        res.status(500).json({ error: 'Failed to fetch payment' });
+    }
+});
+
+app.put('/api/payments/:id/status', requireLogin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status, notes } = req.body;
+        
+        const updatedPayment = await db.updatePaymentStatus(req.session.userId, parseInt(id), status, notes);
+        
+        if (!updatedPayment) {
+            return res.status(404).json({ error: 'Payment not found' });
+        }
+        
+        res.json({ success: true, payment: updatedPayment });
+    } catch (error) {
+        console.error('Error updating payment status:', error);
+        res.status(500).json({ error: 'Failed to update payment status' });
+    }
+});
+
+app.put('/api/payments/:id/dispute', requireLogin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { disputeStatus, disputeReason } = req.body;
+        
+        const updatedPayment = await db.updateDisputeStatus(req.session.userId, parseInt(id), disputeStatus, disputeReason);
+        
+        if (!updatedPayment) {
+            return res.status(404).json({ error: 'Payment not found' });
+        }
+        
+        res.json({ success: true, payment: updatedPayment });
+    } catch (error) {
+        console.error('Error updating dispute status:', error);
+        res.status(500).json({ error: 'Failed to update dispute status' });
+    }
+});
+
+// Payment analytics API
+app.get('/api/payment-analytics', requireLogin, async (req, res) => {
+    try {
+        const days = parseInt(req.query.days) || 30;
+        const analytics = await db.getPaymentAnalytics(req.session.userId, days);
+        res.json(analytics);
+    } catch (error) {
+        console.error('Error fetching payment analytics:', error);
+        res.status(500).json({ error: 'Failed to fetch payment analytics' });
+    }
+});
+
+// Payment methods API
+app.get('/api/payment-methods', requireLogin, async (req, res) => {
+    try {
+        const methods = await db.getPaymentMethods(req.session.userId);
+        res.json(methods);
+    } catch (error) {
+        console.error('Error fetching payment methods:', error);
+        res.status(500).json({ error: 'Failed to fetch payment methods' });
+    }
+});
+
+// Test endpoint for proactive update announcements
+app.post('/test-update-announcement', async (req, res) => {
+    try {
+        const { updateData } = req.body;
+        
+        if (!updateData) {
+            return res.json({
+                success: false,
+                message: 'Please provide updateData in the request body'
+            });
+        }
+
+        // Get proper user ID - use seller4's ID if no session
+        let userId = req.session.userId;
+        if (!userId) {
+            const userResult = await db.query("SELECT id FROM seller_users WHERE username = 'seller4'");
+            if (userResult.rows.length > 0) {
+                userId = userResult.rows[0].id;
+      } else {
+                return res.json({
+                    success: false,
+                    message: 'No user session and seller4 not found'
+                });
+            }
+        }
+
+        const agent = new FlipkartSellerAgent();
+        await agent.initialize(userId);
+        
+        const announcement = agent.generateUpdateAnnouncement(updateData);
+        
+        res.json(announcement);
+    } catch (error) {
+        console.error('Error generating update announcement:', error);
+        res.json({
+            success: false,
+            message: 'Failed to generate update announcement'
+        });
+    }
+});
+
+// Test endpoint for feature explanations
+app.post('/test-feature-explanation', async (req, res) => {
+    try {
+        const { question } = req.body;
+        
+        if (!question) {
+            return res.json({
+                success: false,
+                message: 'Please provide a question in the request body'
+            });
+        }
+
+        // Get proper user ID - use seller4's ID if no session
+        let userId = req.session.userId;
+        if (!userId) {
+            const userResult = await db.query("SELECT id FROM seller_users WHERE username = 'seller4'");
+            if (userResult.rows.length > 0) {
+                userId = userResult.rows[0].id;
+            } else {
+                return res.json({
+                    success: false,
+                    message: 'No user session and seller4 not found'
+                });
+            }
+        }
+
+        const agent = new FlipkartSellerAgent();
+        await agent.initialize(userId);
+        
+        const explanation = agent.handleFeatureExplanation(question);
+        
+        res.json(explanation);
+    } catch (error) {
+        console.error('Error generating feature explanation:', error);
+        res.json({
+            success: false,
+            message: 'Failed to generate feature explanation'
+        });
+    }
+});
+
+// Test endpoint for version management
+app.post('/test-version-info', async (req, res) => {
+    try {
+        const { query } = req.body;
+        
+        if (!query) {
+            return res.json({
+                success: false,
+                message: 'Please provide a query in the request body'
+            });
+        }
+
+        // Get proper user ID - use seller4's ID if no session
+        let userId = req.session.userId;
+        if (!userId) {
+            const userResult = await db.query("SELECT id FROM seller_users WHERE username = 'seller4'");
+            if (userResult.rows.length > 0) {
+                userId = userResult.rows[0].id;
+            } else {
+                return res.json({
+                    success: false,
+                    message: 'No user session and seller4 not found'
+                });
+            }
+        }
+
+        const agent = new FlipkartSellerAgent();
+        await agent.initialize(userId);
+        
+        const versionInfo = agent.handleVersionQueries(query);
+        
+        if (versionInfo) {
+            res.json(versionInfo);
+        } else {
+            res.json({
+                success: false,
+                message: 'No version information found for this query'
+            });
+        }
+    } catch (error) {
+        console.error('Error generating version info:', error);
+        res.json({
+            success: false,
+            message: 'Failed to generate version information'
+        });
+    }
+});
+
+// Seller Management API endpoints
+app.get('/api/sellers', async (req, res) => {
+    try {
+        const result = await db.query(`
+            SELECT id, username, business_name, email, 
+                   CASE 
+                       WHEN business_name LIKE '%Tech%' OR business_name LIKE '%Electronics%' THEN 'Electronics'
+                       WHEN business_name LIKE '%Fashion%' OR business_name LIKE '%Clothing%' THEN 'Fashion'
+                       WHEN business_name LIKE '%Home%' OR business_name LIKE '%Garden%' THEN 'Home & Garden'
+                       WHEN business_name LIKE '%Accessory%' OR business_name LIKE '%Cable%' THEN 'Accessories'
+                       WHEN business_name LIKE '%Office%' OR business_name LIKE '%Supply%' THEN 'Office Supplies'
+                       WHEN business_name LIKE '%Premium%' THEN 'Premium'
+                       WHEN created_at > NOW() - INTERVAL '30 days' THEN 'New'
+                       ELSE 'General'
+                   END as category,
+                   created_at,
+                   is_active
+            FROM seller_users 
+            ORDER BY business_name
+        `);
+        
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching sellers:', error);
+        res.status(500).json({ error: 'Failed to fetch sellers' });
+    }
+});
+
+app.get('/api/seller-stats', async (req, res) => {
+    try {
+        // Get total sellers
+        const totalSellersResult = await db.query('SELECT COUNT(*) as count FROM seller_users');
+        const totalSellers = totalSellersResult.rows[0].count;
+        
+        // Get active sellers
+        const activeSellersResult = await db.query('SELECT COUNT(*) as count FROM seller_users WHERE is_active = true');
+        const activeSellers = activeSellersResult.rows[0].count;
+        
+        // Get total products
+        const totalProductsResult = await db.query('SELECT COUNT(*) as count FROM products');
+        const totalProducts = totalProductsResult.rows[0].count;
+        
+        // Get total revenue
+        const totalRevenueResult = await db.query('SELECT COALESCE(SUM(total), 0) as total FROM orders');
+        const totalRevenue = totalRevenueResult.rows[0].total;
+        
+        res.json({
+            totalSellers: parseInt(totalSellers),
+            activeSellers: parseInt(activeSellers),
+            totalProducts: parseInt(totalProducts),
+            totalRevenue: parseFloat(totalRevenue)
+        });
+    } catch (error) {
+        console.error('Error fetching seller stats:', error);
+        res.status(500).json({ error: 'Failed to fetch seller statistics' });
+    }
+});
+
+// Broadcast announcement endpoint
+app.post('/test-broadcast-announcement', async (req, res) => {
+    try {
+        const { type, targetSellers, category, customMessage, updateData } = req.body;
+        
+        if (!updateData) {
+            return res.json({
+                success: false,
+                message: 'Please provide updateData in the request body'
+            });
+        }
+
+        // Get proper user ID for the agent
+        let userId = req.session.userId;
+        if (!userId) {
+            const userResult = await db.query("SELECT id FROM seller_users WHERE username = 'seller4'");
+            if (userResult.rows.length > 0) {
+                userId = userResult.rows[0].id;
+            } else {
+                return res.json({
+                    success: false,
+                    message: 'No user session and seller4 not found'
+                });
+            }
+        }
+
+        const agent = new FlipkartSellerAgent();
+        await agent.initialize(userId);
+        
+        // Generate the announcement
+        const announcement = agent.generateUpdateAnnouncement(updateData);
+        
+        // Determine target audience
+        let targetInfo = '';
+        let sentCount = 0;
+        let failedCount = 0;
+        
+        if (type === 'all') {
+            const allSellersResult = await db.query('SELECT COUNT(*) as count FROM seller_users WHERE is_active = true');
+            sentCount = parseInt(allSellersResult.rows[0].count);
+            targetInfo = `📢 Broadcast sent to ALL ${sentCount} active sellers`;
+        } else if (type === 'category') {
+            const categorySellersResult = await db.query(`
+                SELECT COUNT(*) as count FROM seller_users 
+                WHERE is_active = true AND business_name ILIKE $1
+            `, [`%${category}%`]);
+            sentCount = parseInt(categorySellersResult.rows[0].count);
+            targetInfo = `📂 Broadcast sent to ${sentCount} ${category} sellers`;
+        } else if (type === 'specific') {
+            sentCount = targetSellers.length;
+            targetInfo = `🎯 Broadcast sent to ${sentCount} specific sellers`;
+        }
+        
+        // Add custom message to the announcement
+        const fullMessage = `${customMessage}\n\n${announcement.message}`;
+
+    res.json({ 
+            success: true,
+            message: fullMessage,
+            targetInfo,
+            sentCount,
+            failedCount,
+            broadcastType: type,
+            timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+        console.error('Error generating broadcast announcement:', error);
+        res.json({
+            success: false,
+            message: 'Failed to generate broadcast announcement'
+        });
+    }
+});
+
 // Initialize database and start server
 async function startServer() {
     try {
         await db.initializeDatabase();
         console.log('Database initialized successfully');
         
-        app.listen(PORT, () => {
-            console.log(`Server is running on http://localhost:${PORT}`);
-        });
+app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
+});
     } catch (error) {
         console.error('Failed to start server:', error);
         process.exit(1);

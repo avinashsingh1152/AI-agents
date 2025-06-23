@@ -130,10 +130,10 @@
         
         .chat-header {
             background: linear-gradient(135deg, #2874f0, #1a5bb8);
-            color: white;
+             color: white;
             padding: 15px 20px;
-            display: flex;
-            align-items: center;
+             display: flex;
+             align-items: center;
             justify-content: space-between;
         }
         
@@ -229,7 +229,10 @@
         
         .chat-input-group {
             display: flex;
+            align-items: center;
             gap: 10px;
+            padding: 10px;
+            border-top: 1px solid #e9ecef;
         }
         
         .chat-input {
@@ -245,8 +248,23 @@
             border-color: #2874f0;
         }
         
-        .chat-send-btn {
+        .chat-upload-btn {
             background: #2874f0;
+             color: white;
+             border: none;
+             border-radius: 50%;
+            width: 40px;
+            height: 40px;
+             cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .chat-upload-btn:hover {
+            background: #1a5bb8;
+        }
+        
+        .chat-send-btn {
+            background: #28a745;
             color: white;
             border: none;
             border-radius: 50%;
@@ -257,7 +275,7 @@
         }
         
         .chat-send-btn:hover {
-            background: #1a5bb8;
+            background: #1e7e34;
         }
         
         .chat-hidden {
@@ -338,153 +356,124 @@
         /* AI Summary Styles */
         .ai-summary-container {
             background: white;
-            border-radius: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            overflow: hidden;
+            margin: 15px 0;
+        }
+        
+        .summary-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
             padding: 20px;
-            margin-bottom: 15px;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
-            border-left: 4px solid #2874f0;
+            text-align: center;
         }
         
         .summary-header h3 {
-            color: #2874f0;
-            margin-bottom: 15px;
+            margin: 0 0 5px 0;
+            font-size: 1.5rem;
             font-weight: 600;
+        }
+        
+        .summary-header p {
+            margin: 0;
+            opacity: 0.9;
+            font-size: 0.9rem;
         }
         
         .summary-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: 15px;
-            margin-bottom: 20px;
+            padding: 20px;
         }
         
         .summary-card {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 15px;
             text-align: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
             border: 1px solid #e9ecef;
         }
         
         .summary-card h4 {
+            margin: 0 0 10px 0;
             font-size: 0.9rem;
-            color: #666;
-            margin-bottom: 8px;
-            font-weight: 500;
+            color: #6c757d;
+            font-weight: 600;
         }
         
-        .summary-card .stats-number {
+        .stats-number {
             font-size: 1.5rem;
             font-weight: bold;
-            color: #2874f0;
+            color: #007bff;
         }
         
         .summary-section {
-            margin-bottom: 20px;
+            padding: 20px;
+            border-bottom: 1px solid #e9ecef;
         }
         
-        .summary-section h4 {
-            color: #333;
-            margin-bottom: 12px;
-            font-weight: 600;
-        }
-        
-        .product-list {
-            max-height: 300px;
-            overflow-y: auto;
-        }
-        
-        .product-item {
-            display: flex;
-            align-items: center;
-            padding: 10px;
-            border-bottom: 1px solid #f0f0f0;
-            gap: 10px;
-        }
-        
-        .product-item:last-child {
+        .summary-section:last-child {
             border-bottom: none;
         }
         
-        .product-number {
-            background: #2874f0;
-            color: white;
-            width: 25px;
-            height: 25px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.8rem;
-            font-weight: bold;
-        }
-        
-        .product-name {
-            flex: 2;
-            font-weight: 500;
-        }
-        
-        .product-category {
-            flex: 1;
-            color: #666;
-            font-size: 0.9rem;
-        }
-        
-        .product-price {
-            flex: 1;
+        .summary-section h4 {
+            margin: 0 0 15px 0;
+            color: #495057;
+            font-size: 1.1rem;
             font-weight: 600;
-            color: #2874f0;
-        }
-        
-        .product-stock {
-            flex: 1;
-            color: #666;
-            font-size: 0.9rem;
-        }
-        
-        .product-profit {
-            flex: 1;
-            font-weight: 600;
-        }
-        
-        .product-sales {
-            flex: 1;
-            color: #666;
-            font-size: 0.9rem;
         }
         
         .insights-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 10px;
+            gap: 12px;
         }
         
         .insight-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
             background: #f8f9fa;
-            padding: 12px;
-            border-radius: 8px;
-            border-left: 3px solid #2874f0;
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
         }
         
         .insight-label {
-            display: block;
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 5px;
+            font-weight: 500;
+            color: #495057;
+            font-size: 0.9rem;
         }
         
         .insight-value {
-            color: #666;
+            font-weight: 600;
+            color: #007bff;
             font-size: 0.9rem;
         }
         
         .summary-footer {
             background: #f8f9fa;
-            padding: 15px;
-            border-radius: 10px;
-            margin-top: 15px;
+            padding: 15px 20px;
             text-align: center;
-            color: #666;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        .summary-footer p {
+            margin: 0;
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        
+        .summary-footer a {
+            color: #007bff;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .summary-footer a:hover {
+            text-decoration: underline;
         }
         
         /* Quick Actions Styles */
@@ -655,6 +644,125 @@
                 flex: none;
             }
         }
+        
+        /* Prediction and Greeting Styles */
+        .quick-insights {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin: 15px 0;
+        }
+        
+        .insight-card {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .insight-icon {
+            font-size: 16px;
+            min-width: 20px;
+        }
+        
+        .insight-text {
+            font-weight: 500;
+        }
+        
+        .recommendations-list {
+            margin: 0;
+            padding: 0;
+        }
+        
+        .recommendations-list li {
+            margin-bottom: 8px;
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            border-radius: 4px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .recommendations-list li:last-child {
+            margin-bottom: 0;
+        }
+        
+        .csv-upload-info {
+            padding: 8px 15px;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+            font-size: 12px;
+        }
+        
+        .csv-upload-info a {
+            color: #2874f0;
+            text-decoration: none;
+        }
+        
+        .csv-upload-info a:hover {
+            text-decoration: underline;
+        }
+        
+        .order-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+        
+        .order-item {
+            display: grid;
+            grid-template-columns: 1fr 1.5fr 2fr 0.5fr 1fr;
+            gap: 10px;
+            padding: 10px 15px;
+            border-bottom: 1px solid #e9ecef;
+            font-size: 12px;
+            align-items: center;
+        }
+        
+        .order-item:last-child {
+            border-bottom: none;
+        }
+        
+        .order-item-more {
+            text-align: center;
+            padding: 10px;
+            color: #6c757d;
+            font-style: italic;
+        }
+        
+        .order-id {
+            font-weight: bold;
+            color: #2874f0;
+        }
+        
+        .customer-name {
+            color: #495057;
+        }
+        
+        .product-name {
+            color: #495057;
+        }
+        
+        .quantity {
+            text-align: center;
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        
+        .total {
+            font-weight: bold;
+            color: #28a745;
+            text-align: right;
+        }
     </style>
 </head>
 <body>
@@ -662,31 +770,32 @@
     <div class="dashboard-header">
         <div class="container">
             <div class="row align-items-center">
-                <div class="col-md-8">
+                <div class="col-md-12">
                     <h2><i class="fas fa-shopping-cart"></i> Flipkart Seller Dashboard</h2>
                     <div class="d-flex align-items-center">
                         <h4 class="mb-0">Welcome, <%= sellerData.profile.ownerName %></h4>
-                        <div class="ms-auto">
-                            <a href="/whatsapp-clone" class="btn btn-success me-2">
-                                <i class="fab fa-whatsapp"></i> WhatsApp Clone
-                            </a>
-                            <a href="/profile" class="btn btn-outline-primary me-2">
-                                <i class="fas fa-user"></i> Profile
-                            </a>
-                            <a href="/chat-logs" class="btn btn-outline-info me-2">
-                                <i class="fas fa-comments"></i> Chat Logs
-                            </a>
+                        <h5 class="mb-0 ms-3 text-light">(<%= sellerData.profile.businessName %>)</h5>
+                        <div class="ms-auto d-flex justify-content-end">
                             <a href="/order-history-page" class="btn btn-outline-warning me-2">
                                 <i class="fas fa-history"></i> Order History
                             </a>
                             <a href="/product-history" class="btn btn-outline-secondary me-2">
                                 <i class="fas fa-chart-line"></i> Product History
                             </a>
-                            <a href="/logout" class="btn btn-outline-danger">
-                                <i class="fas fa-sign-out-alt"></i> Logout
+                            <a href="/whatsapp" class="btn btn-success me-2">
+                                <i class="fab fa-whatsapp"></i>
                             </a>
-                        </div>
-                    </div>
+                            <a href="/profile" class="btn btn-outline-primary me-2">
+                                <i class="fas fa-user"></i>
+                            </a>
+                            <a href="/chat-logs" class="btn btn-outline-info me-2">
+                                <i class="fas fa-comments"></i>
+                            </a>
+                            <a href="/logout" class="btn btn-outline-danger">
+                                <i class="fas fa-sign-out-alt"></i> 
+                            </a>
+                </div>
+                </div>
                 </div>
             </div>
         </div>
@@ -762,15 +871,15 @@
                                     <option value="Sports & Outdoors">Sports & Outdoors</option>
                                     <option value="Books & Media">Books & Media</option>
                                 </select>
-                            </div>
+                    </div>
                             <div class="col-md-3">
                                 <label class="form-label">Price Range</label>
                                 <div class="input-group">
                                     <input type="number" class="form-control" id="minPrice" placeholder="Min" onchange="applyAdvancedFilters()">
                                     <span class="input-group-text">-</span>
                                     <input type="number" class="form-control" id="maxPrice" placeholder="Max" onchange="applyAdvancedFilters()">
-                                </div>
-                            </div>
+                </div>
+            </div>
                             <div class="col-md-3">
                                 <label class="form-label">Stock Level</label>
                                 <select class="form-select" id="stockFilter" onchange="applyAdvancedFilters()">
@@ -779,7 +888,7 @@
                                     <option value="medium">Medium Stock (10-50)</option>
                                     <option value="high">High Stock (> 50)</option>
                                 </select>
-                            </div>
+                    </div>
                             <div class="col-md-3">
                                 <label class="form-label">Profit Margin</label>
                                 <select class="form-select" id="profitFilter" onchange="applyAdvancedFilters()">
@@ -820,10 +929,10 @@
                     </div>
                 </div>
                 
-                <div class="table-responsive">
+                        <div class="table-responsive">
                     <table class="table table-hover">
-                        <thead>
-                            <tr>
+                                <thead>
+                                    <tr>
                                 <th>Product Name<br><input type="text" class="form-control form-control-sm column-filter" placeholder="Filter" oninput="filterTable(0, this.value)"></th>
                                 <th>Category<br><input type="text" class="form-control form-control-sm column-filter" placeholder="Filter" oninput="filterTable(1, this.value)"></th>
                                 <th>Price<br><input type="text" class="form-control form-control-sm column-filter" placeholder="Filter" oninput="filterTable(2, this.value)"></th>
@@ -832,10 +941,10 @@
                                 <th>Stock<br><input type="text" class="form-control form-control-sm column-filter" placeholder="Filter" oninput="filterTable(5, this.value)"></th>
                                 <th>Units Sold<br><input type="text" class="form-control form-control-sm column-filter" placeholder="Filter" oninput="filterTable(6, this.value)"></th>
                                 <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <% sellerData.products.forEach(product => { %>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <% sellerData.products.forEach(product => { %>
                             <tr data-product-id="<%= product.id %>">
                                 <td><strong><%= product.name %></strong></td>
                                 <td><%= product.category %></td>
@@ -845,7 +954,7 @@
                                     <span class="profit-margin <%= (product.profit_margin || 0) >= 30 ? 'high' : (product.profit_margin || 0) >= 15 ? 'medium' : 'low' %>">
                                         <%= (product.profit_margin || 0).toFixed(1) %>%
                                     </span>
-                                </td>
+                                        </td>
                                 <td>
                                     <span class="stock-badge <%= product.stock < 10 ? 'low-stock' : product.stock > 50 ? 'high-stock' : 'normal-stock' %>">
                                         <%= product.stock %>
@@ -857,10 +966,10 @@
                                         <i class="fas fa-edit"></i> Edit
                                     </button>
                                 </td>
-                            </tr>
-                            <% }); %>
-                        </tbody>
-                    </table>
+                                    </tr>
+                                    <% }); %>
+                                </tbody>
+                            </table>
                 </div>
             </div>
         </div>
@@ -871,25 +980,25 @@
                 <h4 class="section-title">
                     <i class="fas fa-list-alt"></i> Recent Orders
                 </h4>
-                <div class="table-responsive">
+                        <div class="table-responsive">
                     <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Order ID</th>
-                                <th>Customer</th>
-                                <th>Products</th>
-                                <th>Total</th>
-                                <th>Status</th>
-                                <th>Date</th>
+                                <thead>
+                                    <tr>
+                                        <th>Order ID</th>
+                                        <th>Customer</th>
+                                        <th>Products</th>
+                                        <th>Total</th>
+                                        <th>Status</th>
+                                        <th>Date</th>
                                 <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <% sellerData.orders.forEach(order => { %>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <% sellerData.orders.forEach(order => { %>
                             <tr data-order-id="<%= order.id %>">
                                 <td><strong><%= order.id %></strong></td>
-                                <td><%= order.customerName %></td>
-                                <td><%= order.products.join(', ') %></td>
+                                        <td><%= order.customerName %></td>
+                                        <td><%= order.products.join(', ') %></td>
                                 <td>₹<%= order.total.toLocaleString() %></td>
                                 <td>
                                     <span class="status-badge status-<%= order.status %>">
@@ -902,10 +1011,24 @@
                                         <i class="fas fa-edit"></i> Update Status
                                     </button>
                                 </td>
-                            </tr>
-                            <% }); %>
-                        </tbody>
-                    </table>
+                                    </tr>
+                                    <% }); %>
+                                </tbody>
+                            </table>
+                        </div>
+            </div>
+        </div>
+
+        <!-- Payment Management Section -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-credit-card fa-3x text-primary mb-3"></i>
+                        <h5 class="card-title">Payment Management</h5>
+                        <p class="card-text">Track payments, disputes, and transactions</p>
+                        <a href="/payment-details" class="btn btn-primary">View Payments</a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1008,15 +1131,17 @@
             <div class="message assistant">
                 <div class="message-avatar">A</div>
                 <div class="message-content">
-                    Hello! I'm your Flipkart seller assistant. I can help you manage your products, orders, and business profile. Try asking me to:
+                    Hello! I'm your Flipkart seller assistant. I can help you manage your products, orders, payments, and provide business insights. Try asking me to:
                     <div class="suggestion-chips">
+                        <div class="suggestion-chip" onclick="sendSuggestion('Show me business forecast')">📊 Business Forecast</div>
+                        <div class="suggestion-chip" onclick="sendSuggestion('Show me payment analytics')">💳 Payment Analytics</div>
                         <div class="suggestion-chip" onclick="sendSuggestion('Update the price of Wireless Bluetooth Headphones to ₹6999')">Update product price</div>
                         <div class="suggestion-chip" onclick="sendSuggestion('Change order ORD003 status to shipped')">Update order status</div>
                         <div class="suggestion-chip" onclick="sendSuggestion('Add a new product called Gaming Mouse')">Add new product</div>
-                        <div class="suggestion-chip" onclick="sendSuggestion('Update my business phone number')">Update profile</div>
-                    </div>
-                </div>
+                        <div class="suggestion-chip" onclick="sendSuggestion('What should I focus on this month?')">🎯 Strategic Advice</div>
             </div>
+        </div>
+        </div>
         </div>
         
         <div class="typing-indicator" id="typingIndicator">
@@ -1030,9 +1155,16 @@
         <div class="chat-input-container">
             <div class="chat-input-group">
                 <input type="text" class="chat-input" id="chatInput" placeholder="Ask me anything about your business..." onkeypress="handleKeyPress(event)">
+                <input type="file" id="csvFileInput" accept=".csv" style="display: none;" onchange="handleCSVUpload(event)">
+                <button class="chat-upload-btn" onclick="document.getElementById('csvFileInput').click()" title="Upload CSV Orders">
+                    <i class="fas fa-file-upload"></i>
+                </button>
                 <button class="chat-send-btn" onclick="sendMessage()">
                     <i class="fas fa-paper-plane"></i>
                 </button>
+            </div>
+            <div class="csv-upload-info" id="csvUploadInfo" style="display: none;">
+                <small class="text-muted">📁 <a href="/demo-orders.csv" download>Download Demo CSV</a> | Supported format: order_id,customer_name,product_name,quantity,unit_price,total_amount,order_date,status</small>
             </div>
         </div>
     </div>
@@ -1081,8 +1213,8 @@
             
             // Send to server
             fetch('/chatbot', {
-                method: 'POST',
-                headers: {
+                    method: 'POST',
+                    headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ message: message })
@@ -1107,29 +1239,35 @@
         
         // Markdown to HTML parser for AI responses
         function parseMarkdownToHTML(text) {
-            // Convert **bold** to <strong>
-            text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-            // Convert headers (lines starting with bold and colon) to <div class="section-title">
-            text = text.replace(/<strong>([^<:]+:)<\/strong>/g, '<div class="section-title">$1</div>');
-            // Convert numbered lists
-            text = text.replace(/\n\d+\. (.*?)(?=\n|$)/g, function(match) {
-                return '<li>' + match.replace(/\n\d+\. /g, '') + '</li>';
-            });
-            // Wrap consecutive <li> in <ol>
-            text = text.replace(/(<li>.*?<\/li>)+/g, function(match) {
-                return '<ol>' + match + '</ol>';
-            });
-            // Convert bullet points
-            text = text.replace(/\n- (.*?)(?=\n|$)/g, function(match) {
-                return '<li>' + match.replace(/\n- /g, '') + '</li>';
-            });
-            // Wrap consecutive <li> in <ul>
-            text = text.replace(/(<li>.*?<\/li>)+/g, function(match) {
+            // If the text already contains HTML tags, don't apply markdown formatting
+            if (text.includes('<div') || text.includes('<span') || text.includes('<h') || text.includes('<p>')) {
+                return text;
+            }
+            
+            let formatted = text
+                // Bold text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                // Italic text
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                // Code blocks
+                .replace(/```(.*?)```/gs, '<code>$1</code>')
+                // Inline code
+                .replace(/`(.*?)`/g, '<code>$1</code>')
+                // Headers
+                .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+                .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+                .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+                // Lists
+                .replace(/^- (.*$)/gm, '<li>$1</li>')
+                .replace(/^\d+\. (.*$)/gm, '<li>$1</li>');
+            
+            // Wrap lists in proper tags
+            formatted = formatted.replace(/(<li>.*<\/li>)/gs, function(match) {
                 return '<ul>' + match + '</ul>';
             });
-            // Convert line breaks
-            text = text.replace(/\n/g, '<br>');
-            return text;
+            // Convert line breaks only for non-HTML content
+            formatted = formatted.replace(/\n/g, '<br>');
+            return formatted;
         }
         
         function addMessage(text, sender) {
@@ -1144,12 +1282,17 @@
             const content = document.createElement('div');
             content.className = 'message-content';
             if (sender === 'assistant') {
-                // Only apply markdown parsing for product-related responses
-                const lowerText = text.toLowerCase();
-                if (lowerText.includes('product') || lowerText.includes('inventory') || lowerText.includes('stock')) {
-                    content.innerHTML = parseMarkdownToHTML(text);
-                } else {
+                // Check if the response is already HTML formatted
+                if (text.includes('<div') || text.includes('<span') || text.includes('<h') || text.includes('<p>')) {
                     content.innerHTML = text;
+                } else {
+                    // Only apply markdown parsing for non-HTML responses
+                    const lowerText = text.toLowerCase();
+                    if (lowerText.includes('product') || lowerText.includes('inventory') || lowerText.includes('stock')) {
+                        content.innerHTML = parseMarkdownToHTML(text);
+                    } else {
+                        content.innerHTML = text;
+                    }
                 }
             } else {
                 content.textContent = text;
@@ -1653,6 +1796,72 @@
         document.addEventListener('DOMContentLoaded', function() {
             updateSmartSuggestions();
         });
+
+        // CSV Upload Functions
+        function handleCSVUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            if (!file.name.toLowerCase().endsWith('.csv')) {
+                alert('Please select a CSV file');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const csvData = e.target.result;
+                processCSVOrders(csvData);
+            };
+            reader.readAsText(file);
+            
+            // Reset file input
+            event.target.value = '';
+        }
+        
+        function processCSVOrders(csvData) {
+            // Add user message showing CSV upload
+            addMessage('📁 Uploading CSV orders...', 'user');
+            
+            // Show typing indicator
+            showTyping();
+            
+            // Send to server for processing
+            fetch('/chatbot', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    message: 'Process the following orders via upload csv',
+                    csvData: csvData
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideTyping();
+                
+                if (data.success) {
+                    // Add assistant response
+                    addMessage(data.message, 'assistant');
+                } else {
+                    addMessage(data.message || 'Sorry, I encountered an error processing the CSV. Please try again.', 'assistant');
+                }
+            })
+            .catch(error => {
+                hideTyping();
+                addMessage('Sorry, I encountered an error processing the CSV. Please try again.', 'assistant');
+                console.error('Error:', error);
+            });
+        }
+        
+        // Show CSV upload info when hovering over upload button
+        function showCSVInfo() {
+            document.getElementById('csvUploadInfo').style.display = 'block';
+        }
+        
+        function hideCSVInfo() {
+            document.getElementById('csvUploadInfo').style.display = 'none';
+        }
     </script>
 </body>
 </html> 
