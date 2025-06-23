@@ -496,9 +496,9 @@ const db = {
 
   // Get analytics
   async getAnalytics(userId) {
-    const totalRevenue = await pool.query('SELECT COALESCE(SUM(total), 0) as total FROM orders WHERE user_id = $1 AND status = \'Delivered\'', [userId]);
+    const totalRevenue = await pool.query('SELECT COALESCE(SUM(total), 0) as total FROM orders WHERE user_id = $1 AND LOWER(status) = \'delivered\'', [userId]);
     const totalOrders = await pool.query('SELECT COUNT(*) as count FROM orders WHERE user_id = $1', [userId]);
-    const pendingOrders = await pool.query('SELECT COUNT(*) as count FROM orders WHERE user_id = $1 AND status = \'Processing\'', [userId]);
+    const pendingOrders = await pool.query('SELECT COUNT(*) as count FROM orders WHERE user_id = $1 AND LOWER(status) = \'processing\'', [userId]);
     const lowStockItems = await pool.query('SELECT COUNT(*) as count FROM products WHERE user_id = $1 AND stock < 10', [userId]);
 
     return {
