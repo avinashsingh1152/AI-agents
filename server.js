@@ -1,8 +1,9 @@
+require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const path = require('path');
 const db = require('./db');
-const FlipkartSellerAgent = require('./flipkart-ai-agent');
+const FlipkartSellerAgentEnhanced = require('./flipkart-ai-agent-enhanced');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -16,7 +17,7 @@ app.set('views', path.join(__dirname, 'views'));
 
 // Session configuration
 app.use(session({
-    secret: 'flipkart-seller-secret-key',
+    secret: process.env.SESSION_SECRET || 'flipkart-seller-secret-key',
     resave: false,
     saveUninitialized: false,
     cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 } // 24 hours
@@ -228,11 +229,11 @@ app.post('/chatbot', requireLogin, async (req, res) => {
         const { message, csvData } = req.body;
         console.log('Chatbot request received:', { message: message?.substring(0, 50), hasCsvData: !!csvData });
         
-        // Force seller4 for all analytics/testing
-        const userId = 4; // seller4
+        // Use the logged-in user's ID instead of hardcoded seller4
+        const userId = req.session.userId;
 
         // Initialize AI agent
-        const aiAgent = new FlipkartSellerAgent();
+        const aiAgent = new FlipkartSellerAgentEnhanced();
         await aiAgent.initialize(userId);
 
         // Check if agent is enabled
@@ -746,7 +747,7 @@ app.get('/api/payment-methods', requireLogin, async (req, res) => {
     }
 });
 
-// Test endpoint for proactive update announcements
+// Test endpoint for update announcements
 app.post('/test-update-announcement', async (req, res) => {
     try {
         const { updateData } = req.body;
@@ -758,21 +759,16 @@ app.post('/test-update-announcement', async (req, res) => {
             });
         }
 
-        // Get proper user ID - use seller4's ID if no session
-        let userId = req.session.userId;
+        // Use the logged-in user's ID
+        const userId = req.session.userId;
         if (!userId) {
-            const userResult = await db.query("SELECT id FROM seller_users WHERE username = 'seller4'");
-            if (userResult.rows.length > 0) {
-                userId = userResult.rows[0].id;
-      } else {
-                return res.json({
-                    success: false,
-                    message: 'No user session and seller4 not found'
-                });
-            }
+            return res.json({
+                success: false,
+                message: 'Please log in to use this feature'
+            });
         }
 
-        const agent = new FlipkartSellerAgent();
+        const agent = new FlipkartSellerAgentEnhanced();
         await agent.initialize(userId);
         
         const announcement = agent.generateUpdateAnnouncement(updateData);
@@ -799,21 +795,16 @@ app.post('/test-feature-explanation', async (req, res) => {
             });
         }
 
-        // Get proper user ID - use seller4's ID if no session
-        let userId = req.session.userId;
+        // Use the logged-in user's ID
+        const userId = req.session.userId;
         if (!userId) {
-            const userResult = await db.query("SELECT id FROM seller_users WHERE username = 'seller4'");
-            if (userResult.rows.length > 0) {
-                userId = userResult.rows[0].id;
-            } else {
-                return res.json({
-                    success: false,
-                    message: 'No user session and seller4 not found'
-                });
-            }
+            return res.json({
+                success: false,
+                message: 'Please log in to use this feature'
+            });
         }
 
-        const agent = new FlipkartSellerAgent();
+        const agent = new FlipkartSellerAgentEnhanced();
         await agent.initialize(userId);
         
         const explanation = agent.handleFeatureExplanation(question);
@@ -840,21 +831,16 @@ app.post('/test-version-info', async (req, res) => {
             });
         }
 
-        // Get proper user ID - use seller4's ID if no session
-        let userId = req.session.userId;
+        // Use the logged-in user's ID
+        const userId = req.session.userId;
         if (!userId) {
-            const userResult = await db.query("SELECT id FROM seller_users WHERE username = 'seller4'");
-            if (userResult.rows.length > 0) {
-                userId = userResult.rows[0].id;
-            } else {
-                return res.json({
-                    success: false,
-                    message: 'No user session and seller4 not found'
-                });
-            }
+            return res.json({
+                success: false,
+                message: 'Please log in to use this feature'
+            });
         }
 
-        const agent = new FlipkartSellerAgent();
+        const agent = new FlipkartSellerAgentEnhanced();
         await agent.initialize(userId);
         
         const versionInfo = agent.handleVersionQueries(query);
@@ -946,21 +932,16 @@ app.post('/test-broadcast-announcement', async (req, res) => {
             });
         }
 
-        // Get proper user ID for the agent
-        let userId = req.session.userId;
+        // Use the logged-in user's ID
+        const userId = req.session.userId;
         if (!userId) {
-            const userResult = await db.query("SELECT id FROM seller_users WHERE username = 'seller4'");
-            if (userResult.rows.length > 0) {
-                userId = userResult.rows[0].id;
-            } else {
-                return res.json({
-                    success: false,
-                    message: 'No user session and seller4 not found'
-                });
-            }
+            return res.json({
+                success: false,
+                message: 'Please log in to use this feature'
+            });
         }
 
-        const agent = new FlipkartSellerAgent();
+        const agent = new FlipkartSellerAgentEnhanced();
         await agent.initialize(userId);
         
         // Generate the announcement
