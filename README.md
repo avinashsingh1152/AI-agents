@@ -1,6 +1,6 @@
-# 🚀 Flipkart Seller Dashboard
+# 🚀 Ecommerce Seller Dashboard
 
-A comprehensive, AI-powered seller dashboard for Flipkart merchants with advanced analytics, payment management, and business intelligence features.
+A comprehensive, AI-powered seller dashboard for Ecommerce merchants with advanced analytics, payment management, and business intelligence features.
 
 ## ✨ Features
 
@@ -47,8 +47,8 @@ A comprehensive, AI-powered seller dashboard for Flipkart merchants with advance
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/yourusername/flipkart-seller-dashboard.git
-cd flipkart-seller-dashboard
+git clone https://github.com/yourusername/Ecommerce-seller-dashboard.git
+cd Ecommerce-seller-dashboard
 ```
 
 ### 2. Install Dependencies
@@ -59,7 +59,7 @@ npm install
 ### 3. Database Setup
 ```bash
 # Create PostgreSQL database
-createdb flipkart_seller_db
+createdb Ecommerce_seller_db
 
 # Update database configuration in db.js
 # Set your database credentials
@@ -72,7 +72,7 @@ NODE_ENV=production
 PORT=3000
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=flipkart_seller_db
+DB_NAME=Ecommerce_seller_db
 DB_USER=your_username
 DB_PASSWORD=your_password
 SESSION_SECRET=your_session_secret
@@ -104,7 +104,7 @@ Update `db.js` with your PostgreSQL connection details:
 const config = {
   host: process.env.DB_HOST || 'localhost',
   port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME || 'flipkart_seller_db',
+  database: process.env.DB_NAME || 'Ecommerce_seller_db',
   user: process.env.DB_USER || 'your_username',
   password: process.env.DB_PASSWORD || 'your_password'
 };
@@ -160,7 +160,7 @@ npm test
 
 # Check for syntax errors
 node --check server.js
-node --check flipkart-ai-agent.js
+node --check Ecommerce-ai-agent.js
 ```
 
 ## 🚀 Deployment
@@ -239,7 +239,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 For support and questions:
 - Create an issue in the GitHub repository
-- Contact: support@flipkart-seller-dashboard.com
+- Contact: support@Ecommerce-seller-dashboard.com
 
 ## 🔄 Changelog
 
@@ -251,11 +251,11 @@ For support and questions:
 
 ## 🙏 Acknowledgments
 
-- Flipkart API for e-commerce integration
+- Ecommerce API for e-commerce integration
 - Bootstrap for UI components
 - Font Awesome for icons
 - PostgreSQL for database management
 
 ---
 
-**Made with ❤️ for Flipkart Sellers**
+**Made with ❤️ for Ecommerce Sellers**
