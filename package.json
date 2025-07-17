@@ -1,22 +1,53 @@
 {
   "name": "flipkart-seller-dashboard",
   "version": "1.0.0",
-  "description": "Flipkart Seller Dashboard",
+  "description": "Flipkart Seller Dashboard with AI-powered analytics and payment management",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "nodemon server.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "echo \"No linter configured\" && exit 0",
+    "build": "echo \"No build process required\" && exit 0",
+    "postinstall": "echo \"Installation completed successfully\""
   },
-  "author": "Pravali",
-  "license": "ISC",
+  "keywords": [
+    "flipkart",
+    "seller",
+    "dashboard",
+    "ecommerce",
+    "analytics",
+    "ai",
+    "payments",
+    "nodejs",
+    "express",
+    "postgresql"
+  ],
+  "author": "Avinash Kumar Singh",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
   "dependencies": {
-    "axios": "^1.7.7",
-    "ejs": "latest",
-    "express": "latest",
-    "body-parser": "^1.20.2",
-    "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
-    "openai": "^3.3.0"
-  }
+    "axios": "^1.10.0",
+    "dotenv": "^16.5.0",
+    "ejs": "^3.1.9",
+    "express": "^4.18.2",
+    "express-session": "^1.18.1",
+    "node-fetch": "^3.3.2",
+    "pg": "^8.16.2",
+    "puppeteer": "^24.10.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/flipkart-seller-dashboard.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/flipkart-seller-dashboard/issues"
+  },
+  "homepage": "https://github.com/yourusername/flipkart-seller-dashboard#readme"
 }
-
