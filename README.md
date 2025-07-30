@@ -47,7 +47,7 @@ A comprehensive, AI-powered seller dashboard for Ecommerce merchants with advanc
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/yourusername/Ecommerce-seller-dashboard.git
+git clone https://github.com/avinashsingh1152/seller-agent.git
 cd Ecommerce-seller-dashboard
 ```
 
